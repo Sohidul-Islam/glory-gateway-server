@@ -158,7 +158,31 @@ class PaymentService {
                 },
                 include: [{
                     model: PaymentDetail,
-                    where: { status: "active" },
+                    where: { isActive: true },
+                    required: false
+                }]
+            });
+
+            return {
+                status: true,
+                message: "Payment Types retrieved successfully",
+                data: result
+            }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getPaymentTypes(userId, query) {
+        try {
+            const result = await PaymentType.findAll({
+                where: {
+                    ...(query?.status ? { status: query?.status } : {}),
+                    userId: userId
+                },
+                include: [{
+                    model: PaymentDetail,
+                    where: { ...(query?.detailsStatus ? { isActive: query?.detailsStatus } : {}), },
                     required: false
                 }]
             });
@@ -194,7 +218,7 @@ class PaymentService {
             const paymentType = await PaymentType.create({
                 userId,
                 paymentMethodId: data.paymentMethodId,
-                name: data.name,
+                name: data?.name,
                 status: data?.status,
                 image: data?.image
             }, { transaction: t });

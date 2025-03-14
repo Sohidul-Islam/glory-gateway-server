@@ -77,6 +77,19 @@ router.get('/types/:methodId',
     }
 );
 
+router.get('/types',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const types = await PaymentService.getPaymentTypesByMethodId(req.user.id, req?.query);
+            res.json(types);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+
 router.post('/transactions',
     AuthService.authenticate,
     async (req, res) => {
