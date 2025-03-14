@@ -1,12 +1,20 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-
+const User = require('./User');
 
 const PaymentMethod = sequelize.define('PaymentMethod', {
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: User,
+            key: 'id'
+        }
     },
     name: {
         type: DataTypes.ENUM('MOBILE_BANKING', 'VISA', 'MASTERCARD', 'CREDIT_CARD', 'USDT'),
@@ -16,9 +24,9 @@ const PaymentMethod = sequelize.define('PaymentMethod', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    isActive: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+    status: {
+        type: DataTypes.ENUM("active", "inactive"),
+        defaultValue: "active"
     },
     createdAt: {
         type: DataTypes.DATE,
@@ -32,5 +40,8 @@ const PaymentMethod = sequelize.define('PaymentMethod', {
     tableName: 'payment_methods',
     timestamps: true
 });
+
+PaymentMethod.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(PaymentMethod, { foreignKey: 'userId' });
 
 module.exports = PaymentMethod; 

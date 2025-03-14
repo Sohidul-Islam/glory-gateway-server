@@ -21,6 +21,10 @@ const PaymentDetail = sequelize.define('PaymentDetail', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    description: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     maxLimit: {
         type: DataTypes.DECIMAL(10, 2),
         defaultValue: 0 // 0 means unlimited

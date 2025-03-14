@@ -7,81 +7,204 @@ const sequelize = require('../db');
 const { Op } = require('sequelize');
 
 class PaymentService {
-    async createPaymentMethod(data) {
+    async createPaymentMethod(data, userId) {
         const t = await sequelize.transaction();
         try {
+
+
+            const getPaymentMethod = await PaymentMethod.findOne({
+                where: {
+                    name: data.name,
+                    userId
+                }
+            })
+
+            if (getPaymentMethod) {
+                return {
+                    status: false,
+                    message: `${data.name} is already exist`
+                }
+            }
+
             const paymentMethod = await PaymentMethod.create({
+                userId,
                 name: data.name,
-                image: data?.image
+                image: data?.image,
+                status: data?.status
             }, { transaction: t });
 
             await t.commit();
-            return paymentMethod;
+            return {
+                status: true,
+                message: "Payment Method created successfully",
+                data: paymentMethod
+            };
         } catch (error) {
             await t.rollback();
             throw error;
         }
     }
 
-    async updatePaymentMethod(data, id) {
+    async updatePaymentMethod(data, id, userId) {
         const t = await sequelize.transaction();
         try {
+
+            const isExist = await PaymentMethod.findByPk(id);
+
+            if (!isExist) {
+                return {
+                    status: false,
+                    message: "Payment method not found."
+                }
+            }
+
+            if (isExist.name !== data.name) {
+                const getPaymentMethod = await PaymentMethod.findOne({
+                    where: {
+                        name: data.name,
+                        userId
+                    }
+                })
+
+                if (getPaymentMethod) {
+                    return {
+                        status: false,
+                        message: `${data.name} is already exist`
+                    }
+                }
+            }
+
             await PaymentMethod.update({
                 name: data.name,
-                image: data?.image
+                image: data?.image,
+                status: data?.status
             }, {
-                where: { id: id }
+                where: {
+                    id: id,
+                    userId: userId
+                }
             }, { transaction: t });
 
-            const updatedMethod = await PaymentMethod.findByPk(id);
+            const updatedMethod = await PaymentMethod.findOne({
+                where: { id, userId }
+            });
+
             await t.commit();
-            return updatedMethod;
+            return {
+                status: true,
+                message: "Payment Method updated successfully",
+                data: updatedMethod
+            };
         } catch (error) {
             await t.rollback();
             throw error;
         }
     }
 
-    async getAllPaymentMethods() {
+    async getAllPaymentMethods(userId, status) {
         try {
-            return await PaymentMethod.findAll({
-                where: { isActive: true }
+            const result = await PaymentMethod.findAll({
+                where: {
+                    ...(status ? { status } : {}),
+                    userId: userId
+                }
             });
+
+            return {
+                status: true,
+                message: "Payment Methods retrieved successfully",
+                data: result
+            }
         } catch (error) {
             throw error;
         }
     }
 
-    async getPaymentTypesByMethodId(methodId) {
+    async getSinglePaymentMethods(userId, methodId) {
         try {
-            return await PaymentType.findAll({
+            const result = await PaymentMethod.findOne({
+                where: {
+                    status: "active",
+                    userId: userId,
+                    id: methodId
+                }
+            });
+
+            if (!result) {
+                return {
+                    status: false,
+                    message: "Method Not found",
+                    data: null
+                }
+            }
+
+            return {
+                status: true,
+                message: "Payment Methods retrieved successfully",
+                data: result
+            }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getPaymentTypesByMethodId(methodId, userId) {
+        try {
+            const result = await PaymentType.findAll({
                 where: {
                     paymentMethodId: methodId,
-                    isActive: true
+                    status: "active",
+                    userId: userId
                 },
                 include: [{
                     model: PaymentDetail,
-                    where: { isActive: true },
+                    where: { status: "active" },
                     required: false
                 }]
             });
+
+            return {
+                status: true,
+                message: "Payment Types retrieved successfully",
+                data: result
+            }
         } catch (error) {
             throw error;
         }
     }
 
-    async createPaymentType(data) {
+    async createPaymentType(data, userId) {
         const t = await sequelize.transaction();
         try {
+            const getPaymentType = await PaymentType.findOne({
+                where: {
+                    name: data.name,
+                    userId,
+                    paymentMethodId: data.paymentMethodId
+                }
+            });
+
+            if (getPaymentType) {
+                return {
+                    status: false,
+                    message: `${data.name} already exists for this payment method`
+                }
+            }
+
             const paymentType = await PaymentType.create({
+                userId,
                 paymentMethodId: data.paymentMethodId,
-                name: data.name
+                name: data.name,
+                status: data?.status,
+                image: data?.image
             }, { transaction: t });
 
             if (data.details && data.details.length > 0) {
                 const detailsData = data.details.map(detail => ({
+                    userId,
                     paymentTypeId: paymentType.id,
                     value: detail.value,
+                    description: detail?.description,
                     maxLimit: detail.maxLimit || 0
                 }));
                 await PaymentDetail.bulkCreate(detailsData, { transaction: t });
@@ -92,9 +215,154 @@ class PaymentService {
             });
 
             await t.commit();
-            return createdType;
+            return {
+                status: true,
+                message: "Payment Type created successfully",
+                data: createdType
+            };
         } catch (error) {
             await t.rollback();
+            throw error;
+        }
+    }
+
+    async updatePaymentType(data, id, userId) {
+        const t = await sequelize.transaction();
+        try {
+            const isExist = await PaymentType.findOne({
+                where: { id, userId }
+            });
+
+            if (!isExist) {
+                return {
+                    status: false,
+                    message: "Payment type not found."
+                }
+            }
+
+            if (isExist.name !== data.name) {
+                const getPaymentType = await PaymentType.findOne({
+                    where: {
+                        name: data.name,
+                        userId,
+                        paymentMethodId: data.paymentMethodId || isExist.paymentMethodId
+                    }
+                });
+
+                if (getPaymentType) {
+                    return {
+                        status: false,
+                        message: `${data.name} already exists for this payment method`
+                    }
+                }
+            }
+
+            await PaymentType.update({
+                name: data.name,
+                image: data?.image,
+                status: data?.status
+            }, {
+                where: {
+                    id: id,
+                    userId: userId
+                }
+            }, { transaction: t });
+
+            // Update or create new details if provided
+            if (data.details && data.details.length > 0) {
+                // First deactivate all existing details
+                await PaymentDetail.update(
+                    { status: 'inactive' },
+                    {
+                        where: { paymentTypeId: id },
+                        transaction: t
+                    }
+                );
+
+                // Then create new details
+                const detailsData = data.details.map(detail => ({
+                    userId,
+                    paymentTypeId: id,
+                    value: detail.value,
+                    description: detail?.description,
+                    maxLimit: detail.maxLimit || 0
+                }));
+                await PaymentDetail.bulkCreate(detailsData, { transaction: t });
+            }
+
+            const updatedType = await PaymentType.findOne({
+                where: { id, userId },
+                include: [{
+                    model: PaymentDetail,
+                    where: { status: 'active' },
+                    required: false
+                }]
+            });
+
+            await t.commit();
+            return {
+                status: true,
+                message: "Payment Type updated successfully",
+                data: updatedType
+            };
+        } catch (error) {
+            await t.rollback();
+            throw error;
+        }
+    }
+
+    async getAllPaymentTypes(userId, status) {
+        try {
+            const result = await PaymentType.findAll({
+                where: {
+                    ...(status ? { status } : {}),
+                    userId: userId
+                },
+                include: [{
+                    model: PaymentDetail,
+                    where: { status: 'active' },
+                    required: false
+                }]
+            });
+
+            return {
+                status: true,
+                message: "Payment Types retrieved successfully",
+                data: result
+            }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getSinglePaymentType(userId, typeId) {
+        try {
+            const result = await PaymentType.findOne({
+                where: {
+                    id: typeId,
+                    userId: userId
+                },
+                include: [{
+                    model: PaymentDetail,
+                    where: { status: 'active' },
+                    required: false
+                }]
+            });
+
+            if (!result) {
+                return {
+                    status: false,
+                    message: "Payment Type not found",
+                    data: null
+                }
+            }
+
+            return {
+                status: true,
+                message: "Payment Type retrieved successfully",
+                data: result
+            }
+        } catch (error) {
             throw error;
         }
     }

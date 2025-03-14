@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const requestHandler = require('./utils/requestHandler');
 const paymentReoute = require("./routes/paymentRoutes")
+const imageUploadRoute = require("./routes/imageUploadRoute")
 
 
 const port = process.env.SERVER_PORT || 3000
@@ -21,6 +22,7 @@ app.use(express.static('public'));
 // here we add router
 
 app.use("/api", requestHandler(null, authRoutes));
+app.use("/api/images", requestHandler(null, imageUploadRoute));
 app.use("/api/payment", requestHandler(null, paymentReoute));
 
 

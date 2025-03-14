@@ -38,7 +38,7 @@ if (process.env.NODE_ENV === 'development') {
 } else {
     sequelize = new Sequelize(
         "mysql://uk3woxayuo5xgmkx:mbEO5LuQT83gPpSsMS2P@boaj4g1dz69mc6aqu89p-mysql.services.clever-cloud.com:3306/boaj4g1dz69mc6aqu89p", {
-        logging: true
+        logging: false
     }
     );
 

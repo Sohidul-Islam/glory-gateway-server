@@ -1,12 +1,21 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 const PaymentMethod = require('./PaymentMethod');
+const User = require('./User');
 
 const PaymentType = sequelize.define('PaymentType', {
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: User,
+            key: 'id'
+        }
     },
     paymentMethodId: {
         type: DataTypes.INTEGER,
@@ -20,13 +29,13 @@ const PaymentType = sequelize.define('PaymentType', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    details: {
-        type: DataTypes.JSON,
-        allowNull: true
+    image: {
+        type: DataTypes.STRING,
+        allowNull: false
     },
-    isActive: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+    status: {
+        type: DataTypes.ENUM("active", "inactive"),
+        defaultValue: "active"
     },
     createdAt: {
         type: DataTypes.DATE,
@@ -42,7 +51,9 @@ const PaymentType = sequelize.define('PaymentType', {
 });
 
 // Define the relationship
+PaymentType.belongsTo(User, { foreignKey: 'userId' });
 PaymentType.belongsTo(PaymentMethod, { foreignKey: 'paymentMethodId' });
+User.hasMany(PaymentType, { foreignKey: 'userId' });
 PaymentMethod.hasMany(PaymentType, { foreignKey: 'paymentMethodId' });
 
 module.exports = PaymentType; 
