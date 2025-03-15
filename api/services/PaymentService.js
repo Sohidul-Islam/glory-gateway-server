@@ -124,7 +124,6 @@ class PaymentService {
         try {
             const result = await PaymentMethod.findOne({
                 where: {
-                    status: "active",
                     userId: userId,
                     id: methodId
                 }
@@ -234,9 +233,7 @@ class PaymentService {
                 await PaymentDetail.bulkCreate(detailsData, { transaction: t });
             }
 
-            const createdType = await PaymentType.findByPk(paymentType.id, {
-                include: [PaymentDetail]
-            });
+            const createdType = await PaymentType.findByPk(paymentType.id);
 
             await t.commit();
             return {
@@ -254,7 +251,8 @@ class PaymentService {
         const t = await sequelize.transaction();
         try {
             const isExist = await PaymentType.findOne({
-                where: { id, userId }
+                where: { id, userId },
+                
             });
 
             if (!isExist) {
@@ -294,31 +292,80 @@ class PaymentService {
 
             // Update or create new details if provided
             if (data.details && data.details.length > 0) {
-                // First deactivate all existing details
+                // Get existing details
+                const existingDetails = await PaymentDetail.findAll({
+                    where: { paymentTypeId: id, isActive: true }
+                });
+
+                // Create a map of existing details by ID
+                const existingDetailsMap = new Map(
+                    existingDetails.map(detail => [detail.id, detail])
+                );
+
+                // Collect IDs that are present in the update
+                const updatedDetailIds = data.details
+                    .filter(detail => detail.id)
+                    .map(detail => detail.id);
+
+                // Deactivate details that are not in the update
                 await PaymentDetail.update(
-                    { status: 'inactive' },
+                    { isActive: false },
+                    {
+                        where: {
+                            paymentTypeId: id,
+                            id: { [Op.notIn]: updatedDetailIds }
+                        },
+                        transaction: t
+                    }
+                );
+
+                // Process each detail
+                for (const detail of data.details) {
+                    if (detail.id && existingDetailsMap.has(detail.id)) {
+                        // Update existing detail
+                        await PaymentDetail.update(
+                            {
+                                value: detail.value,
+                                description: detail?.description,
+                                maxLimit: detail.maxLimit || 0,
+                                isActive: true
+                            },
+                            {
+                                where: { id: detail.id },
+                                transaction: t
+                            }
+                        );
+                    } else {
+                        // Create new detail
+                        await PaymentDetail.create(
+                            {
+                                userId,
+                                paymentTypeId: id,
+                                value: detail.value,
+                                description: detail?.description,
+                                maxLimit: detail.maxLimit || 0,
+                                isActive: true
+                            },
+                            { transaction: t }
+                        );
+                    }
+                }
+            } else {
+                // If no details provided, deactivate all existing details
+                await PaymentDetail.update(
+                    { isActive: false },
                     {
                         where: { paymentTypeId: id },
                         transaction: t
                     }
                 );
-
-                // Then create new details
-                const detailsData = data.details.map(detail => ({
-                    userId,
-                    paymentTypeId: id,
-                    value: detail.value,
-                    description: detail?.description,
-                    maxLimit: detail.maxLimit || 0
-                }));
-                await PaymentDetail.bulkCreate(detailsData, { transaction: t });
             }
 
             const updatedType = await PaymentType.findOne({
                 where: { id, userId },
                 include: [{
                     model: PaymentDetail,
-                    where: { status: 'active' },
+                    where: { isActive: true },
                     required: false
                 }]
             });
@@ -337,6 +384,9 @@ class PaymentService {
 
     async getAllPaymentTypes(userId, status) {
         try {
+
+            console.log({userId,status})
+            
             const result = await PaymentType.findAll({
                 where: {
                     ...(status ? { status } : {}),

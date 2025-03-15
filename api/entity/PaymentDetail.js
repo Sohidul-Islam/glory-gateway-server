@@ -23,7 +23,7 @@ const PaymentDetail = sequelize.define('PaymentDetail', {
     },
     description: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     maxLimit: {
         type: DataTypes.DECIMAL(10, 2),
