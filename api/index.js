@@ -7,7 +7,7 @@ const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const requestHandler = require('./utils/requestHandler');
-const paymentReoute = require("./routes/paymentRoutes")
+const paymentRoute = require("./routes/paymentRoutes")
 const imageUploadRoute = require("./routes/imageUploadRoute")
 
 
@@ -23,7 +23,7 @@ app.use(express.static('public'));
 
 app.use("/api", requestHandler(null, authRoutes));
 app.use("/api/images", requestHandler(null, imageUploadRoute));
-app.use("/api/payment", requestHandler(null, paymentReoute));
+app.use("/api/payment", requestHandler(null, paymentRoute));
 
 
 app.get("/", function (req, res) {

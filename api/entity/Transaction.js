@@ -4,6 +4,7 @@ const User = require('./User');
 const PaymentMethod = require('./PaymentMethod');
 const PaymentType = require('./PaymentType');
 const PaymentDetail = require('./PaymentDetail');
+const PaymentAccount = require('./PaymentAccount');
 
 const Transaction = sequelize.define('Transaction', {
     id: {
@@ -43,21 +44,25 @@ const Transaction = sequelize.define('Transaction', {
             key: 'id'
         }
     },
-    type: {
-        type: DataTypes.ENUM('DEPOSIT', 'WITHDRAWAL'),
+    paymentAccountId: {
+        type: DataTypes.INTEGER,
         allowNull: false
-    },
-    amount: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
-    },
-    status: {
-        type: DataTypes.ENUM('PENDING', 'COMPLETED', 'FAILED'),
-        defaultValue: 'PENDING'
     },
     transactionId: {
         type: DataTypes.STRING,
-        unique: true
+        allowNull: false
+    },
+    type: {
+        type: DataTypes.ENUM('credit', 'debit'),
+        allowNull: false
+    },
+    amount: {
+        type: DataTypes.DECIMAL(15, 2),
+        allowNull: false
+    },
+    status: {
+        type: DataTypes.ENUM('pending', 'completed', 'failed'),
+        defaultValue: 'pending'
     },
     createdAt: {
         type: DataTypes.DATE,
@@ -77,5 +82,6 @@ Transaction.belongsTo(User, { foreignKey: 'userId' });
 Transaction.belongsTo(PaymentMethod, { foreignKey: 'paymentMethodId' });
 Transaction.belongsTo(PaymentType, { foreignKey: 'paymentTypeId' });
 Transaction.belongsTo(PaymentDetail, { foreignKey: 'paymentDetailId' });
+Transaction.belongsTo(PaymentAccount, { foreignKey: 'paymentAccountId' });
 
 module.exports = Transaction; 

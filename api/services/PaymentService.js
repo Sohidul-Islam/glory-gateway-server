@@ -1,7 +1,9 @@
 const PaymentMethod = require('../entity/PaymentMethod');
 const PaymentType = require('../entity/PaymentType');
 const PaymentDetail = require('../entity/PaymentDetail');
+const PaymentAccount = require('../entity/PaymentAccount');
 const Transaction = require('../entity/Transaction');
+const PaymentAccountService = require('./PaymentAccountService');
 const { v4: uuidv4 } = require('uuid');
 const sequelize = require('../db');
 const { Op } = require('sequelize');
@@ -467,35 +469,41 @@ class PaymentService {
     async createTransaction(userId, data) {
         const t = await sequelize.transaction();
         try {
+            // Find available payment detail
             const availableDetail = await this.findAvailablePaymentDetail(data.paymentTypeId, data.amount);
+            
+            // Find available account for the payment detail
+            const availableAccount = await PaymentAccountService.findAvailableAccount(availableDetail.id, data.amount);
 
             const transaction = await Transaction.create({
                 userId,
                 paymentMethodId: data.paymentMethodId,
                 paymentTypeId: data.paymentTypeId,
                 paymentDetailId: availableDetail.id,
+                paymentAccountId: availableAccount.id,
                 type: data.type,
                 amount: data.amount,
                 transactionId: uuidv4()
             }, { transaction: t });
 
-            if (availableDetail.maxLimit > 0) {
-                await availableDetail.increment('currentUsage', {
-                    by: data.amount,
-                    transaction: t
-                });
-            }
+            // Update account usage
+            await PaymentAccountService.updateAccountUsage(availableAccount.id, data.amount, t);
 
             const createdTransaction = await Transaction.findByPk(transaction.id, {
                 include: [
                     { model: PaymentMethod },
                     { model: PaymentType },
-                    { model: PaymentDetail }
+                    { model: PaymentDetail },
+                    { model: PaymentAccount }
                 ]
             });
 
             await t.commit();
-            return createdTransaction;
+            return {
+                status: true,
+                message: "Transaction created successfully",
+                data: createdTransaction
+            };
         } catch (error) {
             await t.rollback();
             throw error;
@@ -504,15 +512,22 @@ class PaymentService {
 
     async getUserTransactions(userId) {
         try {
-            return await Transaction.findAll({
+            const transactions = await Transaction.findAll({
                 where: { userId },
                 include: [
                     { model: PaymentMethod },
                     { model: PaymentType },
-                    { model: PaymentDetail }
+                    { model: PaymentDetail },
+                    { model: PaymentAccount }
                 ],
                 order: [['createdAt', 'DESC']]
             });
+
+            return {
+                status: true,
+                message: "Transactions retrieved successfully",
+                data: transactions
+            };
         } catch (error) {
             throw error;
         }
@@ -538,6 +553,104 @@ class PaymentService {
 
             await t.commit();
             return updatedTransaction;
+        } catch (error) {
+            await t.rollback();
+            throw error;
+        }
+    }
+
+    async deletePaymentType(id) {
+        const t = await sequelize.transaction();
+        try {
+            // Check if payment type exists and belongs to user
+            const paymentType = await PaymentType.findOne({
+                where: { id: id }
+            });
+
+            if (!paymentType) {
+                return {
+                    status: false,
+                    message: "Payment type not found"
+                };
+            }
+
+
+            // Deactivate all associated payment details
+            await PaymentDetail.update(
+                { isActive: false },
+                {
+                    where: { paymentTypeId: id },
+                    transaction: t
+                }
+            );
+
+            // Deactivate all associated payment accounts
+            await PaymentAccount.update(
+                { isActive: false },
+                {
+                    where: { 
+                        paymentDetailId: {
+                            [Op.in]: sequelize.literal(`(SELECT id FROM PaymentDetails WHERE paymentTypeId = ${id})`)
+                        }
+                    },
+                    transaction: t
+                }
+            );
+
+            // Update payment type status to inactive
+            await PaymentType.update(
+                { status: 'inactive' },
+                {
+                    where: { id },
+                    transaction: t
+                }
+            );
+
+            await t.commit();
+            return {
+                status: true,
+                message: "Payment type and associated details deleted successfully"
+            };
+        } catch (error) {
+            await t.rollback();
+            throw error;
+        }
+    }
+
+
+    async getPaymentDetails(paymentDetailId) {
+        const t = await sequelize.transaction();
+        try {
+
+            const paymentDetailsData = await PaymentDetail.findByPk(paymentDetailId,{
+                include:[{
+                    model: PaymentType,
+                    include: [{
+                        model: PaymentMethod
+                    }]
+                }]
+            })
+            // Check if payment type exists and belongs to user
+            const paymentType = await PaymentAccount.findAll({
+                where: { paymentDetailId: paymentDetailId }
+            });
+
+            if (!paymentType) {
+                return {
+                    status: false,
+                    message: "Payment type not found"
+                };
+            }
+
+            await t.commit();
+            return {
+                status: true,
+                message: "Payment account retrieved",
+                data: {
+                    paymentMethod: paymentDetailsData,
+                    accountInfo: paymentType
+                }
+            };
         } catch (error) {
             await t.rollback();
             throw error;

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const PaymentService = require('../services/PaymentService');
 const { AuthService } = require('../services');
+const PaymentAccountService = require('../services/PaymentAccountService');
 
 // Admin routes
 router.post('/methods',
@@ -53,6 +54,17 @@ router.get('/methods',
     }
 );
 
+router.get('/methods/:agentId',
+    async (req, res) => {
+        try {
+            const methods = await PaymentService.getAllPaymentMethods(req?.params?.agentId, req?.query?.status);
+            res.json(methods);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
 router.get('/methods/:methodId',
     AuthService.authenticate,
     async (req, res) => {
@@ -65,11 +77,36 @@ router.get('/methods/:methodId',
     }
 );
 
+
+
+router.get('/methods/:methodId/:agentId',
+    async (req, res) => {
+        try {
+            const methods = await PaymentService.getSinglePaymentMethods(req.params.agentId, req?.params?.methodId);
+            res.json(methods);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
 router.get('/types/:methodId',
     AuthService.authenticate,
     async (req, res) => {
         try {
             const types = await PaymentService.getPaymentTypesByMethodId(req.params.methodId, req.user.id);
+            res.json(types);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+
+router.get('/types/:methodId/:agentId',
+    async (req, res) => {
+        try {
+            const types = await PaymentService.getPaymentTypesByMethodId(req.params.methodId, req.params.agentId);
             res.json(types);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -149,6 +186,77 @@ router.get('/types/:typeId',
         try {
             const type = await PaymentService.getSinglePaymentType(req.user.id, req.params.typeId);
             res.json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+router.get('/types/:typeId/:agentId',
+    async (req, res) => {
+        try {
+            const type = await PaymentService.getSinglePaymentType(req.params.agentId, req.params.typeId);
+            res.json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+router.post('/types/delete/:typeId',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const type = await PaymentService.deletePaymentType(req.user.id, req.params.typeId);
+            res.status(type?.status ? 200: 500).json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+router.get('/details/:detailsId',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const type = await PaymentService.getPaymentDetails(req.params.detailsId);
+            res.status(type?.status ? 200: 500).json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+router.get('/details/agent/:agentId/:detailsId',
+    async (req, res) => {
+        try {
+            const type = await PaymentService.getPaymentDetails(req.params.detailsId);
+            res.status(type?.status ? 200: 500).json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+
+router.post('/account/create',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const type = await PaymentAccountService.createPaymentAccount(req.body, req?.user?.id);
+            res.status(type?.status ? 200: 500).json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+router.post('/account/update/:id',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const type = await PaymentAccountService.updatePaymentAccount(req.body, req?.params?.id, req?.user?.id);
+            res.status(type?.status ? 200: 500).json(type);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
