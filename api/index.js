@@ -26,6 +26,7 @@ app.use("/api/images", requestHandler(null, imageUploadRoute));
 app.use("/api/payment", requestHandler(null, paymentRoute));
 
 
+
 app.get("/", function (req, res) {
     res.send("welcome pos solution family!");
 });

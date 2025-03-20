@@ -73,6 +73,12 @@ const User = sequelize.define(
             allowNull: true,
             comment: "Token for email verification",
         },
+        agentId: {
+            type: Sequelize.STRING,
+            unique: "ageintId",
+            allowNull: true,
+            comment: "custom agent id",
+        },
         resetTokenExpiry: {
             type: Sequelize.DATE,
             defaultValue: null

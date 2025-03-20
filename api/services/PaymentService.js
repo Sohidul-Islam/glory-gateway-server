@@ -7,6 +7,7 @@ const PaymentAccountService = require('./PaymentAccountService');
 const { v4: uuidv4 } = require('uuid');
 const sequelize = require('../db');
 const { Op } = require('sequelize');
+const User = require('../entity/User');
 
 class PaymentService {
     async createPaymentMethod(data, userId) {
@@ -103,12 +104,12 @@ class PaymentService {
         }
     }
 
-    async getAllPaymentMethods(userId, status) {
+    async getAllPaymentMethods(status) {
         try {
+
             const result = await PaymentMethod.findAll({
                 where: {
-                    ...(status ? { status } : {}),
-                    userId: userId
+                    ...(status ? { status } : {})
                 }
             });
 
@@ -179,13 +180,18 @@ class PaymentService {
             const result = await PaymentType.findAll({
                 where: {
                     ...(query?.status ? { status: query?.status } : {}),
-                    userId: userId
                 },
                 include: [{
                     model: PaymentDetail,
-                    where: { ...(query?.detailsStatus ? { isActive: query?.detailsStatus } : {}), },
+                    where: { isActive: true },
                     required: false
-                }]
+                },
+                {
+                    model: PaymentMethod,
+                    required: false
+                }
+
+                ]
             });
 
             return {
@@ -219,9 +225,9 @@ class PaymentService {
             const paymentType = await PaymentType.create({
                 userId,
                 paymentMethodId: data.paymentMethodId,
-                name: data?.name,
+                name: data.name,
                 status: data?.status,
-                image: data?.image
+                image: data?.image,
             }, { transaction: t });
 
             if (data.details && data.details.length > 0) {
@@ -229,6 +235,7 @@ class PaymentService {
                     userId,
                     paymentTypeId: paymentType.id,
                     value: detail.value,
+                    charge: Number(Number(detail.charge || 0).toFixed(2)),
                     description: detail?.description,
                     maxLimit: detail.maxLimit || 0
                 }));
@@ -254,7 +261,7 @@ class PaymentService {
         try {
             const isExist = await PaymentType.findOne({
                 where: { id, userId },
-                
+
             });
 
             if (!isExist) {
@@ -329,6 +336,7 @@ class PaymentService {
                             {
                                 value: detail.value,
                                 description: detail?.description,
+                                charge: Number(Number(detail.charge || 0).toFixed(2)),
                                 maxLimit: detail.maxLimit || 0,
                                 isActive: true
                             },
@@ -345,6 +353,7 @@ class PaymentService {
                                 paymentTypeId: id,
                                 value: detail.value,
                                 description: detail?.description,
+                                charge: Number(Number(detail.charge || 0).toFixed(2)),
                                 maxLimit: detail.maxLimit || 0,
                                 isActive: true
                             },
@@ -387,8 +396,6 @@ class PaymentService {
     async getAllPaymentTypes(userId, status) {
         try {
 
-            console.log({userId,status})
-            
             const result = await PaymentType.findAll({
                 where: {
                     ...(status ? { status } : {}),
@@ -471,7 +478,7 @@ class PaymentService {
         try {
             // Find available payment detail
             const availableDetail = await this.findAvailablePaymentDetail(data.paymentTypeId, data.amount);
-            
+
             // Find available account for the payment detail
             const availableAccount = await PaymentAccountService.findAvailableAccount(availableDetail.id, data.amount);
 
@@ -588,7 +595,7 @@ class PaymentService {
             await PaymentAccount.update(
                 { isActive: false },
                 {
-                    where: { 
+                    where: {
                         paymentDetailId: {
                             [Op.in]: sequelize.literal(`(SELECT id FROM PaymentDetails WHERE paymentTypeId = ${id})`)
                         }
@@ -618,12 +625,12 @@ class PaymentService {
     }
 
 
-    async getPaymentDetails(paymentDetailId) {
+    async getPaymentDetails(userId, paymentDetailId) {
         const t = await sequelize.transaction();
         try {
 
-            const paymentDetailsData = await PaymentDetail.findByPk(paymentDetailId,{
-                include:[{
+            const paymentDetailsData = await PaymentDetail.findByPk(paymentDetailId, {
+                include: [{
                     model: PaymentType,
                     include: [{
                         model: PaymentMethod
@@ -632,7 +639,7 @@ class PaymentService {
             })
             // Check if payment type exists and belongs to user
             const paymentType = await PaymentAccount.findAll({
-                where: { paymentDetailId: paymentDetailId }
+                where: { paymentDetailId: paymentDetailId, userId: userId }
             });
 
             if (!paymentType) {
@@ -648,6 +655,45 @@ class PaymentService {
                 message: "Payment account retrieved",
                 data: {
                     paymentMethod: paymentDetailsData,
+                    accountInfo: paymentType
+                }
+            };
+        } catch (error) {
+            await t.rollback();
+            throw error;
+        }
+    }
+
+    async getPaymentDetailsByTypeId(userId, paymentTypeId) {
+        const t = await sequelize.transaction();
+        try {
+
+            const paymentDetailsData = await PaymentType.findOne({
+                where: {
+                    id: paymentTypeId,
+                },
+                include: [{
+                    model: PaymentMethod
+                }]
+            })
+            // Check if payment type exists and belongs to user
+            const paymentType = await PaymentAccount.findAll({
+                where: { paymentTypeId: paymentDetailsData.id, userId: userId }
+            });
+
+            if (!paymentType) {
+                return {
+                    status: false,
+                    message: "Payment type not found"
+                };
+            }
+
+            await t.commit();
+            return {
+                status: true,
+                message: "Payment account retrieved",
+                data: {
+                    paymentMethod: { PaymentType: paymentDetailsData },
                     accountInfo: paymentType
                 }
             };

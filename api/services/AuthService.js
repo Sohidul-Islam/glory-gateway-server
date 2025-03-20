@@ -3,6 +3,29 @@ const jwt = require('jsonwebtoken');
 const { User, UserSubscription, SubscriptionPlan, UserRole } = require('../entity');
 const EmailService = require('./EmailService');
 const { Op } = require('sequelize');
+const sequelize = require('../db');
+
+function generateUniqueId(length = 10) {
+    const generatedIds = new Set();
+    if (length < 3) throw new Error("Minimum length should be 3");
+
+    while (true) {
+        // Timestamp part (in base36 for compactness)
+        const timestamp = Date.now().toString(36);
+        // Random part to fill remaining length
+        const randomPart = Array.from({ length: length - timestamp.length }, () =>
+            Math.floor(Math.random() * 36).toString(36)
+        ).join('');
+
+        const newAgentId = (timestamp + randomPart).slice(0, length);
+
+        // Ensure uniqueness
+        if (!generatedIds.has(newAgentId)) {
+            generatedIds.add(newAgentId);
+            return newAgentId;
+        }
+    }
+}
 
 const AuthService = {
     async register(userData) {
@@ -25,7 +48,8 @@ const AuthService = {
                 ...userData,
                 password: hashedPassword,
                 accountStatus: 'inactive',
-                isVerified: false
+                isVerified: false,
+                agentId: generateUniqueId(10)
             });
 
             await EmailService.sendVerificationEmail(user)
@@ -141,9 +165,6 @@ const AuthService = {
                     }
                 }
             );
-
-
-
 
             if (!user) {
                 return { status: false, message: "User not found", data: null };
@@ -406,6 +427,84 @@ const AuthService = {
                 message: "Error checking admin status",
                 error: error.message
             });
+        }
+    },
+    // async generateAgentId
+    async assignAgentId(userId, data) {
+
+        try {
+            // Check if user exists
+            const user = await User.findByPk(userId);
+            if (!user) {
+                return {
+                    status: false,
+                    message: "User not found"
+                };
+            }
+
+            let newAgentId;
+
+            if (data?.agentId && user?.agentId !== data?.agentId) {
+                // Check if the provided agentId is already in use
+                const existingUser = await User.findOne({
+                    where: { agentId: data.agentId }
+                });
+
+                if (existingUser) {
+                    return {
+                        status: false,
+                        message: "This Agent ID is already in use"
+                    };
+                }
+
+                // Validate the length of provided agentId (between 3 and 20 digits)
+                if (data.agentId.length < 3 || data.agentId.length > 20) {
+                    return {
+                        status: false,
+                        message: "Agent ID must be between 3 and 20 digits"
+                    };
+                }
+
+                newAgentId = data.agentId;
+            } else {
+                // Generate new agent ID automatically
+                let isUnique = false;
+                while (!isUnique) {
+                    const minDigits = 3;
+                    const maxDigits = 20;
+                    const digitLength = Math.floor(Math.random() * (maxDigits - minDigits + 1)) + minDigits;
+
+                    newAgentId = generateUniqueId(digitLength)
+
+                    const existingUser = await User.findOne({
+                        where: { agentId: newAgentId }
+                    });
+
+                    if (!existingUser) {
+                        isUnique = true;
+                    }
+                }
+            }
+
+            // Assign agent ID to user
+            await User.update({
+                agentId: newAgentId
+            }, {
+                where: { id: userId }
+            });
+
+            const updatedUser = await User.findByPk(userId);
+
+
+
+            return {
+                status: true,
+                message: "Agent ID assigned successfully",
+                data: updatedUser
+            };
+        } catch (error) {
+            await t.rollback();
+            throw error;
         }
     }
 };

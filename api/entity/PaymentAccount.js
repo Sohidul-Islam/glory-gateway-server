@@ -13,11 +13,23 @@ const PaymentAccount = sequelize.define('PaymentAccount', {
     },
     paymentDetailId: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
+    },
+    paymentTypeId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
     },
     accountNumber: {
         type: DataTypes.STRING,
         allowNull: false
+    },
+    branchName: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    routingNumber: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     maxLimit: {
         type: DataTypes.DECIMAL(15, 2),

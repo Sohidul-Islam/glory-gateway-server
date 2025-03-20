@@ -4,6 +4,7 @@ const { AuthService } = require('../services');
 const subscriptionLimits = require('../middleware/subscriptionLimits');
 const requestHandler = require('../utils/requestHandler');
 
+
 const router = express.Router();
 
 // Add child user
@@ -40,6 +41,16 @@ router.post('/child-users/delete/:id',
     AuthService.authenticate,
     requestHandler(null, async (req, res) => {
         const result = await UserRoleService.deleteChildUser(req.params.id, req.user.id);
+        res.status(result.status ? 200 : 400).json(result);
+    })
+);
+
+// Admin assign agent ID to another user
+router.post('/assign-agent-id/:userId',
+    AuthService.authenticate,
+    AuthService.isAdmin,
+    requestHandler(null, async (req, res) => {
+        const result = await AuthService;
         res.status(result.status ? 200 : 400).json(result);
     })
 );

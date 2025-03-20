@@ -17,7 +17,7 @@ const PaymentMethod = sequelize.define('PaymentMethod', {
         }
     },
     name: {
-        type: DataTypes.ENUM('MOBILE_BANKING', 'VISA', 'MASTERCARD', 'CREDIT_CARD', 'USDT'),
+        type: DataTypes.ENUM('MOBILE_BANKING', 'VISA', 'BANK', 'MASTERCARD', 'CREDIT_CARD', 'USDT'),
         allowNull: false
     },
     image: {

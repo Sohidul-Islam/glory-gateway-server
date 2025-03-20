@@ -29,6 +29,19 @@ router.post('/methods/:id',
     }
 );
 
+// User routes
+router.get('/methods',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const methods = await PaymentService.getAllPaymentMethods(req.user.accountType !== "super admin" ? "active" : req?.query?.status);
+            res.json(methods);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
 router.post('/types',
     AuthService.authenticate,
     async (req, res) => {
@@ -41,24 +54,13 @@ router.post('/types',
     }
 );
 
-// User routes
-router.get('/methods',
-    AuthService.authenticate,
-    async (req, res) => {
-        try {
-            const methods = await PaymentService.getAllPaymentMethods(req.user.id, req?.query?.status);
-            res.json(methods);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    }
-);
 
-router.get('/methods/:agentId',
+
+router.get('/methods/agent/:agentId',
     async (req, res) => {
         try {
-            const methods = await PaymentService.getAllPaymentMethods(req?.params?.agentId, req?.query?.status);
-            res.json(methods);
+            const methods = await PaymentService.getAllPaymentMethods("active");
+            res.status(200).json(methods);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -118,7 +120,9 @@ router.get('/types',
     AuthService.authenticate,
     async (req, res) => {
         try {
-            const types = await PaymentService.getPaymentTypes(req.user.id, req?.query);
+            const query = req?.query;
+            query.status = req?.user?.accountType === "super admin" ? req?.query?.status : "active"
+            const types = await PaymentService.getPaymentTypes(req.user.id, query);
             res.json(types);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -166,13 +170,12 @@ router.post('/types/:id',
 
 // Get all payment types
 router.get('/types',
-    AuthService.authenticate,
     async (req, res) => {
         try {
-            // const types = await PaymentService.getAllPaymentTypes(req.user.id, req?.query?.status);
-            // res.json(types);
+            const types = await PaymentService.getAllPaymentTypes(req.user.id, "active");
+            res.json(types);
 
-            console.log({res: req})
+            console.log({ res: req })
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -208,7 +211,7 @@ router.post('/types/delete/:typeId',
     async (req, res) => {
         try {
             const type = await PaymentService.deletePaymentType(req.user.id, req.params.typeId);
-            res.status(type?.status ? 200: 500).json(type);
+            res.status(type?.status ? 200 : 500).json(type);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -219,8 +222,20 @@ router.get('/details/:detailsId',
     AuthService.authenticate,
     async (req, res) => {
         try {
-            const type = await PaymentService.getPaymentDetails(req.params.detailsId);
-            res.status(type?.status ? 200: 500).json(type);
+            const type = await PaymentService.getPaymentDetails(req?.user?.id, req.params.detailsId);
+            res.status(type?.status ? 200 : 500).json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+router.get('/type/details/:paymentTypeId',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const type = await PaymentService.getPaymentDetailsByTypeId(req?.user?.id, req.params.paymentTypeId);
+            res.status(type?.status ? 200 : 500).json(type);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -231,7 +246,7 @@ router.get('/details/agent/:agentId/:detailsId',
     async (req, res) => {
         try {
             const type = await PaymentService.getPaymentDetails(req.params.detailsId);
-            res.status(type?.status ? 200: 500).json(type);
+            res.status(type?.status ? 200 : 500).json(type);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -244,7 +259,7 @@ router.post('/account/create',
     async (req, res) => {
         try {
             const type = await PaymentAccountService.createPaymentAccount(req.body, req?.user?.id);
-            res.status(type?.status ? 200: 500).json(type);
+            res.status(type?.status ? 200 : 500).json(type);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -256,7 +271,20 @@ router.post('/account/update/:id',
     async (req, res) => {
         try {
             const type = await PaymentAccountService.updatePaymentAccount(req.body, req?.params?.id, req?.user?.id);
-            res.status(type?.status ? 200: 500).json(type);
+            res.status(type?.status ? 200 : 500).json(type);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+// Generate agent ID
+router.get('/generate-agent-id',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const result = await PaymentService.generateAgentId();
+            res.json(result);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

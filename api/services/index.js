@@ -1,5 +1,5 @@
-const AuthService = require("./AuthService");
 const ProductService = require("./ProductService");
+const AuthService = require("./AuthService");
 const CategoryService = require("./CategoryService");
 const BrandService = require("./BrandService");
 const UnitService = require("./UnitService");

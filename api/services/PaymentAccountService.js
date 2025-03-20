@@ -26,7 +26,10 @@ class PaymentAccountService {
             const account = await PaymentAccount.create({
                 userId,
                 paymentDetailId: data.paymentDetailId,
+                paymentTypeId: data.paymentTypeId,
                 accountNumber: data.accountNumber,
+                branchName: data?.branchName,
+                routingNumber: data?.routingNumber,
                 maxLimit: data.maxLimit || 0,
                 status: data.status || 'active'
             }, { transaction: t });
@@ -77,6 +80,8 @@ class PaymentAccountService {
 
             await PaymentAccount.update({
                 accountNumber: data.accountNumber,
+                branchName: data?.branchName,
+                routingNumber: data?.routingNumber,
                 maxLimit: data.maxLimit,
                 status: data.status
             }, {
