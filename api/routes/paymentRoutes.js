@@ -131,11 +131,10 @@ router.get('/types',
 );
 
 
-router.post('/transactions',
-    AuthService.authenticate,
+router.post('/transactions/:agentId',
     async (req, res) => {
         try {
-            const transaction = await PaymentService.createTransaction(req.user.id, req.body);
+            const transaction = await PaymentService.createTransaction(req.params.agentId, req.body);
             res.status(201).json(transaction);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -146,12 +145,8 @@ router.post('/transactions',
 router.get('/transactions',
     AuthService.authenticate,
     async (req, res) => {
-        try {
-            const transactions = await PaymentService.getUserTransactions(req.user.id);
-            res.json(transactions);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
+        const result = await PaymentService.getUserTransactions(req.user.id, req.query);
+        res.status(result.status ? 200 : 400).json(result);
     }
 );
 
@@ -295,6 +290,23 @@ router.get('/agent-payment-details',
     AuthService.authenticate, async (req, res) => {
         const result = await PaymentService.getAgentPaymentDetails(req.query);
         res.status(result.status ? 200 : 400).json(result);
+    }
+);
+
+// Update transaction status (approve/reject)
+router.post('/transactions/status/:transactionId',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const result = await PaymentService.updateTransactionStatus(
+                req.params.transactionId,
+                req.body,
+                req.user.id
+            );
+            res.status(result.status ? 200 : 400).json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
     }
 );
 

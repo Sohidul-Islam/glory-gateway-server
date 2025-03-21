@@ -52,6 +52,22 @@ const Transaction = sequelize.define('Transaction', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    givenTransactionId: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    attachment: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    paymentSource: {
+        type: DataTypes.ENUM('player', 'agent', 'product'),
+        allowNull: false
+    },
+    paymentSourceId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     type: {
         type: DataTypes.ENUM('credit', 'debit'),
         allowNull: false
@@ -61,8 +77,24 @@ const Transaction = sequelize.define('Transaction', {
         allowNull: false
     },
     status: {
-        type: DataTypes.ENUM('pending', 'completed', 'failed'),
-        defaultValue: 'pending'
+        type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+        defaultValue: 'PENDING'
+    },
+    remarks: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    approvedBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: User,
+            key: 'id'
+        }
+    },
+    approvedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
     },
     createdAt: {
         type: DataTypes.DATE,
@@ -83,5 +115,6 @@ Transaction.belongsTo(PaymentMethod, { foreignKey: 'paymentMethodId' });
 Transaction.belongsTo(PaymentType, { foreignKey: 'paymentTypeId' });
 Transaction.belongsTo(PaymentDetail, { foreignKey: 'paymentDetailId' });
 Transaction.belongsTo(PaymentAccount, { foreignKey: 'paymentAccountId' });
+Transaction.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
 
 module.exports = Transaction; 

@@ -161,7 +161,8 @@ class PaymentAccountService {
                 throw new Error('Payment account not found');
             }
 
-            if (account.maxLimit > 0 && (account.currentUsage + amount) > account.maxLimit) {
+
+            if (account.maxLimit > 0 && (account.currentUsage + Number(amount)) > account.maxLimit) {
                 throw new Error('Account limit exceeded');
             }
 
@@ -169,6 +170,7 @@ class PaymentAccountService {
                 by: amount,
                 transaction: t
             });
+
 
             return account;
         } catch (error) {

@@ -475,28 +475,48 @@ class PaymentService {
         }
     }
 
-    async createTransaction(userId, data) {
+    async createTransaction(agentId, data) {
         const t = await sequelize.transaction();
         try {
-            // Find available payment detail
-            const availableDetail = await this.findAvailablePaymentDetail(data.paymentTypeId, data.amount);
 
-            // Find available account for the payment detail
-            const availableAccount = await PaymentAccountService.findAvailableAccount(availableDetail.id, data.amount);
+            const userData = await User.findOne({
+                where: {
+                    agentId: agentId
+                }
+            });
+
+            if (!userData) {
+                return {
+                    status: false,
+                    message: "Agent not found"
+                }
+            }
+
+            if (!data?.paymentAccountId) {
+                return {
+                    status: false,
+                    message: "Payment account not provided"
+                }
+            }
+
 
             const transaction = await Transaction.create({
-                userId,
+                userId: userData.id,
                 paymentMethodId: data.paymentMethodId,
                 paymentTypeId: data.paymentTypeId,
-                paymentDetailId: availableDetail.id,
-                paymentAccountId: availableAccount.id,
+                paymentDetailId: data.paymentDetailId,
+                paymentAccountId: data.paymentAccountId,
+                paymentSource: data.paymentSource,
+                paymentSourceId: data.paymentSourceId,
+                givenTransactionId: data?.transactionId,
+                attachment: data?.attachment,
                 type: data.type,
                 amount: data.amount,
                 transactionId: uuidv4()
             }, { transaction: t });
 
             // Update account usage
-            await PaymentAccountService.updateAccountUsage(availableAccount.id, data.amount, t);
+            await PaymentAccountService.updateAccountUsage(data?.paymentAccountId, data.amount, t);
 
             const createdTransaction = await Transaction.findByPk(transaction.id, {
                 include: [
@@ -519,52 +539,223 @@ class PaymentService {
         }
     }
 
-    async getUserTransactions(userId) {
+
+
+    async getUserTransactions(userId, query) {
         try {
+            const {
+                page = 1,
+                limit = 10,
+                paymentMethodId,
+                paymentTypeId,
+                paymentDetailId,
+                paymentAccountId,
+                source,
+                sourceId,
+                transactionId,
+                type,
+                startDate,
+                endDate,
+                status,
+                sortBy = 'createdAt',
+                sortOrder = 'DESC'
+            } = query;
+
+            // Calculate offset
+            const offset = (page - 1) * limit;
+
+            // Build where clause
+            const whereClause = {
+                userId,
+                ...(paymentMethodId && { paymentMethodId }),
+                ...(paymentTypeId && { paymentTypeId }),
+                ...(paymentDetailId && { paymentDetailId }),
+                ...(paymentAccountId && { paymentAccountId }),
+                ...(source && { paymentSource: source }),
+                ...(sourceId && { paymentSourceId: sourceId }),
+                ...(transactionId && {
+                    transactionId: {
+                        [Op.like]: `%${transactionId}%`
+                    }
+                }),
+                ...(type && { type }),
+                ...(status && { status }),
+                ...(startDate && endDate && {
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate),
+                            new Date(endDate)
+                        ]
+                    }
+                })
+            };
+
+            // Get total count for pagination
+            const total = await Transaction.count({
+                where: whereClause
+            });
+
+            // Calculate total pages
+            const totalPages = Math.ceil(total / limit);
+
+            // Build sort order
+            const order = [[sortBy, sortOrder]];
+
+            // Get transactions with pagination and filters
             const transactions = await Transaction.findAll({
-                where: { userId },
+                where: whereClause,
                 include: [
-                    { model: PaymentMethod },
-                    { model: PaymentType },
-                    { model: PaymentDetail },
-                    { model: PaymentAccount }
+                    {
+                        model: PaymentMethod,
+                        attributes: ['id', 'name', 'image']
+                    },
+                    {
+                        model: PaymentType,
+                        attributes: ['id', 'name', 'image']
+                    },
+                    {
+                        model: PaymentDetail,
+                        attributes: ['id', 'value', 'description', 'charge']
+                    },
+                    {
+                        model: PaymentAccount,
+                        attributes: [
+                            'id',
+                            'accountNumber',
+                            'accountName',
+                            'branchName',
+                            'routingNumber'
+                        ]
+                    }
                 ],
-                order: [['createdAt', 'DESC']]
+                order,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+
             });
 
             return {
                 status: true,
                 message: "Transactions retrieved successfully",
-                data: transactions
+                data: {
+                    transactions,
+                    pagination: {
+                        total,
+                        totalPages,
+                        currentPage: parseInt(page),
+                        limit: parseInt(limit),
+                        hasNextPage: page < totalPages,
+                        hasPrevPage: page > 1
+                    }
+                }
             };
         } catch (error) {
-            throw error;
+            return {
+                status: false,
+                message: error.message || "Error retrieving transactions",
+                error: error
+            };
         }
     }
 
-    async updateTransactionStatus(transactionId, status) {
+    async updateTransactionStatus(transactionId, data, userId) {
         const t = await sequelize.transaction();
         try {
-            const transaction = await Transaction.findByPk(transactionId);
+            const transaction = await Transaction.findByPk(transactionId, {
+                include: [
+                    {
+                        model: PaymentAccount,
+                        attributes: ['id', 'currentUsage', 'maxLimit']
+                    }
+                ]
+            });
+
             if (!transaction) {
-                throw new Error('Transaction not found');
+                return {
+                    status: false,
+                    message: 'Transaction not found'
+                };
             }
 
-            await transaction.update({ status }, { transaction: t });
+            // Check if transaction is already approved/rejected
+            if (transaction.status !== 'PENDING') {
+                return {
+                    status: false,
+                    message: `Transaction is already ${transaction.status.toLowerCase()}`
+                };
+            }
 
+            // If rejecting, we need to reverse the account usage
+            if (data.status === 'REJECTED') {
+                // Decrease the current usage of the account
+                await PaymentAccount.update(
+                    {
+                        currentUsage: sequelize.literal(`currentUsage - ${transaction.amount}`)
+                    },
+                    {
+                        where: { id: transaction.paymentAccountId },
+                        transaction: t
+                    }
+                );
+            }
+
+            // Update transaction status
+            await transaction.update({
+                status: data.status,
+                remarks: data?.remarks,
+                approvedBy: userId,
+                approvedAt: new Date(),
+            }, { transaction: t });
+
+            // Get updated transaction with all relations
             const updatedTransaction = await Transaction.findByPk(transactionId, {
                 include: [
-                    { model: PaymentMethod },
-                    { model: PaymentType },
-                    { model: PaymentDetail }
+                    {
+                        model: PaymentMethod,
+                        attributes: ['id', 'name', 'image']
+                    },
+                    {
+                        model: PaymentType,
+                        attributes: ['id', 'name', 'image']
+                    },
+                    {
+                        model: PaymentDetail,
+                        attributes: ['id', 'value', 'description', 'charge']
+                    },
+                    {
+                        model: PaymentAccount,
+                        attributes: [
+                            'id',
+                            'accountNumber',
+                            'accountName',
+                            'branchName',
+                            'routingNumber',
+                            'maxLimit',
+                            'currentUsage'
+                        ]
+                    },
+                    {
+                        model: User,
+                        as: 'approver',
+                        attributes: ['id', 'fullName', 'email'],
+                        foreignKey: 'approvedBy'
+                    }
                 ]
             });
 
             await t.commit();
-            return updatedTransaction;
+            return {
+                status: true,
+                message: `Transaction ${data.status.toLowerCase()} successfully`,
+                data: updatedTransaction
+            };
         } catch (error) {
             await t.rollback();
-            throw error;
+            return {
+                status: false,
+                message: error.message || "Error updating transaction status",
+                error: error
+            };
         }
     }
 
@@ -718,7 +909,7 @@ class PaymentService {
                 },
             });
 
-            console.log(agentId, paymentTypeId, paymentDetailId, user);
+
 
             if (!user) {
                 return {
@@ -732,11 +923,11 @@ class PaymentService {
                 where: {
                     userId: user.id,
                     // status: 'active',
-                    // [Op.or]: [
-                    //     { maxLimit: 0 },  // unlimited limit
-                    //     sequelize.literal('PaymentAccount.maxLimit > PaymentAccount.currentUsage')  // still has available limit
-                    // ],
-                    ...(paymentTypeId ? { paymentTypeId: Number(paymentTypeId) } : {}),
+                    [Op.or]: [
+                        { maxLimit: 0 },  // unlimited limit
+                        sequelize.literal('PaymentAccount.maxLimit > PaymentAccount.currentUsage')  // still has available limit
+                    ],
+                    ...(!paymentDetailId && paymentTypeId ? { paymentTypeId: Number(paymentTypeId) } : {}),
                     ...(paymentDetailId ? { paymentDetailId: Number(paymentDetailId) } : {})
                 },
                 include: [
@@ -756,6 +947,18 @@ class PaymentService {
                         model: PaymentDetail,
                         where: { isActive: true },
                         attributes: ['id', 'value', 'description', 'charge', 'maxLimit', 'currentUsage'],
+                        include: [{
+                            model: PaymentType,
+                            where: { status: 'active' },
+                            attributes: ['id', 'name', 'image'],
+                            include: [{
+                                model: PaymentMethod,
+                                where: { status: 'active' },
+                                attributes: ['id', 'name', 'image'],
+                                required: false
+                            }],
+                            required: false
+                        }],
                         required: false
                     }
                 ],
@@ -764,6 +967,7 @@ class PaymentService {
                     'accountNumber',
                     'accountName',
                     'branchName',
+                    'routingNumber',
                     'maxLimit',
                     'currentUsage'
                 ],
@@ -785,17 +989,21 @@ class PaymentService {
                 agent: {
                     id: user.id,
                     fullName: user.fullName,
-                    agentId: user.agentId
+                    agentId: user.agentId,
+                    image: user.image,
+                    status: user.accountStatus,
+                    phone: user.phone,
+                    email: user.email
                 },
                 paymentMethod: {
-                    id: paymentAccount?.PaymentType?.PaymentMethod?.id,
-                    name: paymentAccount?.PaymentType?.PaymentMethod?.name,
-                    image: paymentAccount?.PaymentType?.PaymentMethod?.image
+                    id: paymentAccount?.PaymentType?.PaymentMethod?.id || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.id,
+                    name: paymentAccount?.PaymentType?.PaymentMethod?.name || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.name,
+                    image: paymentAccount?.PaymentType?.PaymentMethod?.image || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.image
                 },
                 paymentType: {
-                    id: paymentAccount?.PaymentType?.id,
-                    name: paymentAccount?.PaymentType?.name,
-                    image: paymentAccount?.PaymentType?.image
+                    id: paymentAccount?.PaymentType?.id || paymentAccount?.PaymentDetail?.PaymentType?.id,
+                    name: paymentAccount?.PaymentType?.name || paymentAccount?.PaymentDetail?.PaymentType?.name,
+                    image: paymentAccount?.PaymentType?.image || paymentAccount?.PaymentDetail?.PaymentType?.image
                 },
                 paymentDetail: {
                     id: paymentAccount?.PaymentDetail?.id,
@@ -813,6 +1021,7 @@ class PaymentService {
                     accountNumber: paymentAccount?.accountNumber,
                     accountName: paymentAccount?.accountName,
                     branchName: paymentAccount?.branchName,
+                    routingNumber: paymentAccount?.routingNumber,
                     maxLimit: paymentAccount?.maxLimit,
                     currentUsage: paymentAccount?.currentUsage,
                     availableLimit: paymentAccount?.maxLimit === 0 ?
