@@ -13,6 +13,7 @@ const StatementService = require("./statementService");
 const SubscriptionService = require("./SubscriptionService");
 const CouponService = require("./CouponService");
 const UserRoleService = require("./UserRoleService");
+const UserService = require("./UserService");
 
 
 
@@ -31,6 +32,6 @@ module.exports = {
     StatementService,
     SubscriptionService,
     CouponService,
-    UserRoleService
-
+    UserRoleService,
+    UserService
 };

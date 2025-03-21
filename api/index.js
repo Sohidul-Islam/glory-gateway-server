@@ -9,6 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const requestHandler = require('./utils/requestHandler');
 const paymentRoute = require("./routes/paymentRoutes")
 const imageUploadRoute = require("./routes/imageUploadRoute")
+const userRoute = require("./routes/userRoutes")
 
 
 const port = process.env.SERVER_PORT || 3000
@@ -24,6 +25,7 @@ app.use(express.static('public'));
 app.use("/api", requestHandler(null, authRoutes));
 app.use("/api/images", requestHandler(null, imageUploadRoute));
 app.use("/api/payment", requestHandler(null, paymentRoute));
+app.use("/api/role", requestHandler(null, userRoute));
 
 
 

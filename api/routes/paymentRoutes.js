@@ -122,7 +122,7 @@ router.get('/types',
         try {
             const query = req?.query;
             query.status = req?.user?.accountType === "super admin" ? req?.query?.status : "active"
-            const types = await PaymentService.getPaymentTypes(req.user.id, query);
+            const types = await PaymentService.getPaymentTypes(query);
             res.json(types);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -169,13 +169,13 @@ router.post('/types/:id',
 );
 
 // Get all payment types
-router.get('/types',
+router.get('/types-agent/:agentId',
     async (req, res) => {
         try {
-            const types = await PaymentService.getAllPaymentTypes(req.user.id, "active");
+            const query = req?.query;
+            query.status = "active";
+            const types = await PaymentService.getPaymentTypes(query);
             res.json(types);
-
-            console.log({ res: req })
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

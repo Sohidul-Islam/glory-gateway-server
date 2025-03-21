@@ -175,7 +175,8 @@ class PaymentService {
         }
     }
 
-    async getPaymentTypes(userId, query) {
+    async getPaymentTypes(query) {
+
         try {
             const result = await PaymentType.findAll({
                 where: {
@@ -194,12 +195,15 @@ class PaymentService {
                 ]
             });
 
+            console.log({ query, result })
+
             return {
                 status: true,
                 message: "Payment Types retrieved successfully",
                 data: result
             }
         } catch (error) {
+            console.log({ error })
             throw error;
         }
     }
@@ -393,13 +397,11 @@ class PaymentService {
         }
     }
 
-    async getAllPaymentTypes(userId, status) {
+    async getAllPaymentTypes(status) {
         try {
-
             const result = await PaymentType.findAll({
                 where: {
                     ...(status ? { status } : {}),
-                    userId: userId
                 },
                 include: [{
                     model: PaymentDetail,

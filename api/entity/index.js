@@ -13,6 +13,7 @@ const SubscriptionPlan = require('./SubscriptionPlan');
 const UserSubscription = require('./UserSubscription');
 const Coupon = require('./Coupon');
 const UserRole = require('./UserRole');
+const Banner = require('./Banner');
 
 // User Associations
 User.hasMany(Product);
@@ -98,5 +99,6 @@ module.exports = {
     SubscriptionPlan,
     UserSubscription,
     Coupon,
-    UserRole
+    UserRole,
+    Banner
 };

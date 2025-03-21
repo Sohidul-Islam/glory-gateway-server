@@ -3,6 +3,7 @@ const { UserRoleService } = require('../services');
 const { AuthService } = require('../services');
 const subscriptionLimits = require('../middleware/subscriptionLimits');
 const requestHandler = require('../utils/requestHandler');
+const { UserService } = require('../services');
 
 
 const router = express.Router();
@@ -45,12 +46,12 @@ router.post('/child-users/delete/:id',
     })
 );
 
-// Admin assign agent ID to another user
-router.post('/assign-agent-id/:userId',
-    AuthService.authenticate,
-    AuthService.isAdmin,
+
+
+// Add this route to get agent information
+router.get('/agent/:agentId',
     requestHandler(null, async (req, res) => {
-        const result = await AuthService;
+        const result = await UserService.getAgentInfo(req.params.agentId);
         res.status(result.status ? 200 : 400).json(result);
     })
 );
