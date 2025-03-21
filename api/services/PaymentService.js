@@ -705,17 +705,20 @@ class PaymentService {
         }
     }
 
-    async getAgentPaymentDetails(data) {
+    async getAgentPaymentDetails(query) {
         try {
-            const { agentId, paymentTypeId, paymentDetailId } = data;
+            const { agentId, paymentTypeId, paymentDetailId } = query;
+
+
 
             // Find the agent/user
             const user = await User.findOne({
                 where: {
                     agentId,
                 },
-                attributes: ['id', 'fullName', 'agentId']
             });
+
+            console.log(agentId, paymentTypeId, paymentDetailId, user);
 
             if (!user) {
                 return {
@@ -728,13 +731,13 @@ class PaymentService {
             const accountQuery = {
                 where: {
                     userId: user.id,
-                    status: 'active',
+                    // status: 'active',
                     // [Op.or]: [
                     //     { maxLimit: 0 },  // unlimited limit
                     //     sequelize.literal('PaymentAccount.maxLimit > PaymentAccount.currentUsage')  // still has available limit
                     // ],
-                    ...(paymentTypeId && { paymentTypeId }),
-                    ...(paymentDetailId && { paymentDetailId })
+                    ...(paymentTypeId ? { paymentTypeId: Number(paymentTypeId) } : {}),
+                    ...(paymentDetailId ? { paymentDetailId: Number(paymentDetailId) } : {})
                 },
                 include: [
                     {
@@ -785,36 +788,36 @@ class PaymentService {
                     agentId: user.agentId
                 },
                 paymentMethod: {
-                    id: paymentAccount.PaymentType.PaymentMethod.id,
-                    name: paymentAccount.PaymentType.PaymentMethod.name,
-                    image: paymentAccount.PaymentType.PaymentMethod.image
+                    id: paymentAccount?.PaymentType?.PaymentMethod?.id,
+                    name: paymentAccount?.PaymentType?.PaymentMethod?.name,
+                    image: paymentAccount?.PaymentType?.PaymentMethod?.image
                 },
                 paymentType: {
-                    id: paymentAccount.PaymentType.id,
-                    name: paymentAccount.PaymentType.name,
-                    image: paymentAccount.PaymentType.image
+                    id: paymentAccount?.PaymentType?.id,
+                    name: paymentAccount?.PaymentType?.name,
+                    image: paymentAccount?.PaymentType?.image
                 },
                 paymentDetail: {
-                    id: paymentAccount.PaymentDetail.id,
-                    value: paymentAccount.PaymentDetail.value,
-                    description: paymentAccount.PaymentDetail.description,
-                    charge: paymentAccount.PaymentDetail.charge,
-                    maxLimit: paymentAccount.PaymentDetail.maxLimit,
-                    currentUsage: paymentAccount.PaymentDetail.currentUsage,
-                    availableLimit: paymentAccount.PaymentDetail.maxLimit === 0 ?
+                    id: paymentAccount?.PaymentDetail?.id,
+                    value: paymentAccount?.PaymentDetail?.value,
+                    description: paymentAccount?.PaymentDetail?.description,
+                    charge: paymentAccount?.PaymentDetail?.charge,
+                    maxLimit: paymentAccount?.PaymentDetail?.maxLimit,
+                    currentUsage: paymentAccount?.PaymentDetail?.currentUsage,
+                    availableLimit: paymentAccount?.PaymentDetail?.maxLimit === 0 ?
                         'Unlimited' :
-                        (paymentAccount.PaymentDetail.maxLimit - paymentAccount.PaymentDetail.currentUsage)
+                        (paymentAccount?.PaymentDetail?.maxLimit - paymentAccount?.PaymentDetail?.currentUsage)
                 },
                 account: {
-                    id: paymentAccount.id,
-                    accountNumber: paymentAccount.accountNumber,
-                    accountName: paymentAccount.accountName,
-                    branchName: paymentAccount.branchName,
-                    maxLimit: paymentAccount.maxLimit,
-                    currentUsage: paymentAccount.currentUsage,
-                    availableLimit: paymentAccount.maxLimit === 0 ?
+                    id: paymentAccount?.id,
+                    accountNumber: paymentAccount?.accountNumber,
+                    accountName: paymentAccount?.accountName,
+                    branchName: paymentAccount?.branchName,
+                    maxLimit: paymentAccount?.maxLimit,
+                    currentUsage: paymentAccount?.currentUsage,
+                    availableLimit: paymentAccount?.maxLimit === 0 ?
                         'Unlimited' :
-                        (paymentAccount.maxLimit - paymentAccount.currentUsage)
+                        (paymentAccount?.maxLimit - paymentAccount?.currentUsage)
                 }
             };
 
