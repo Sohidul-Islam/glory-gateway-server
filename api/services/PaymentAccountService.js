@@ -12,7 +12,6 @@ class PaymentAccountService {
                 where: {
                     accountNumber: data.accountNumber,
                     userId,
-                    isActive: true
                 }
             });
 
@@ -50,7 +49,7 @@ class PaymentAccountService {
         const t = await sequelize.transaction();
         try {
             const account = await PaymentAccount.findOne({
-                where: { id, userId, isActive: true }
+                where: { id, userId }
             });
 
             if (!account) {

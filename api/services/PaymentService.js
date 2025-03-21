@@ -704,6 +704,133 @@ class PaymentService {
             throw error;
         }
     }
+
+    async getAgentPaymentDetails(data) {
+        try {
+            const { agentId, paymentTypeId, paymentDetailId } = data;
+
+            // Find the agent/user
+            const user = await User.findOne({
+                where: {
+                    agentId,
+                },
+                attributes: ['id', 'fullName', 'agentId']
+            });
+
+            if (!user) {
+                return {
+                    status: false,
+                    message: "Agent not found"
+                };
+            }
+
+            // Build the query for PaymentAccount
+            const accountQuery = {
+                where: {
+                    userId: user.id,
+                    status: 'active',
+                    // [Op.or]: [
+                    //     { maxLimit: 0 },  // unlimited limit
+                    //     sequelize.literal('PaymentAccount.maxLimit > PaymentAccount.currentUsage')  // still has available limit
+                    // ],
+                    ...(paymentTypeId && { paymentTypeId }),
+                    ...(paymentDetailId && { paymentDetailId })
+                },
+                include: [
+                    {
+                        model: PaymentType,
+                        where: { status: 'active' },
+                        attributes: ['id', 'name', 'image'],
+                        include: [{
+                            model: PaymentMethod,
+                            where: { status: 'active' },
+                            attributes: ['id', 'name', 'image'],
+                            required: false
+                        }],
+                        required: false
+                    },
+                    {
+                        model: PaymentDetail,
+                        where: { isActive: true },
+                        attributes: ['id', 'value', 'description', 'charge', 'maxLimit', 'currentUsage'],
+                        required: false
+                    }
+                ],
+                attributes: [
+                    'id',
+                    'accountNumber',
+                    'accountName',
+                    'branchName',
+                    'maxLimit',
+                    'currentUsage'
+                ],
+                order: [['currentUsage', 'ASC']],  // Get account with least usage first
+                // limit: 1 // Only get one available account
+            };
+
+            const paymentAccount = await PaymentAccount.findOne(accountQuery);
+
+            if (!paymentAccount) {
+                return {
+                    status: false,
+                    message: "No available payment accounts found"
+                };
+            }
+
+            // Format the response
+            const formattedResponse = {
+                agent: {
+                    id: user.id,
+                    fullName: user.fullName,
+                    agentId: user.agentId
+                },
+                paymentMethod: {
+                    id: paymentAccount.PaymentType.PaymentMethod.id,
+                    name: paymentAccount.PaymentType.PaymentMethod.name,
+                    image: paymentAccount.PaymentType.PaymentMethod.image
+                },
+                paymentType: {
+                    id: paymentAccount.PaymentType.id,
+                    name: paymentAccount.PaymentType.name,
+                    image: paymentAccount.PaymentType.image
+                },
+                paymentDetail: {
+                    id: paymentAccount.PaymentDetail.id,
+                    value: paymentAccount.PaymentDetail.value,
+                    description: paymentAccount.PaymentDetail.description,
+                    charge: paymentAccount.PaymentDetail.charge,
+                    maxLimit: paymentAccount.PaymentDetail.maxLimit,
+                    currentUsage: paymentAccount.PaymentDetail.currentUsage,
+                    availableLimit: paymentAccount.PaymentDetail.maxLimit === 0 ?
+                        'Unlimited' :
+                        (paymentAccount.PaymentDetail.maxLimit - paymentAccount.PaymentDetail.currentUsage)
+                },
+                account: {
+                    id: paymentAccount.id,
+                    accountNumber: paymentAccount.accountNumber,
+                    accountName: paymentAccount.accountName,
+                    branchName: paymentAccount.branchName,
+                    maxLimit: paymentAccount.maxLimit,
+                    currentUsage: paymentAccount.currentUsage,
+                    availableLimit: paymentAccount.maxLimit === 0 ?
+                        'Unlimited' :
+                        (paymentAccount.maxLimit - paymentAccount.currentUsage)
+                }
+            };
+
+            return {
+                status: true,
+                message: "Payment details retrieved successfully",
+                data: formattedResponse
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || "Error retrieving payment details",
+                error: error
+            };
+        }
+    }
 }
 
 module.exports = new PaymentService(); 

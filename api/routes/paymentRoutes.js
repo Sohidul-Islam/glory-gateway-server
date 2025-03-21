@@ -291,4 +291,11 @@ router.get('/generate-agent-id',
     }
 );
 
+router.get('/agent-payment-details',
+    AuthService.authenticate, async (req, res) => {
+        const result = await PaymentService.getAgentPaymentDetails(req.query);
+        res.status(result.status ? 200 : 400).json(result);
+    }
+);
+
 module.exports = router; 
