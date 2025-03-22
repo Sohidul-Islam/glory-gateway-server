@@ -30,7 +30,8 @@ const Transaction = sequelize.define('Transaction', {
     },
     paymentTypeId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
+        defaultValue:null,
         references: {
             model: PaymentType,
             key: 'id'
@@ -38,7 +39,8 @@ const Transaction = sequelize.define('Transaction', {
     },
     paymentDetailId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
+        defaultValue:null,
         references: {
             model: PaymentDetail,
             key: 'id'
