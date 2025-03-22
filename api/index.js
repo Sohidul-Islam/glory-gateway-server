@@ -30,7 +30,7 @@ app.use("/api/role", requestHandler(null, userRoute));
 
 
 app.get("/", function (req, res) {
-    res.send("welcome pos solution family!");
+    res.send("welcome www.lendenpay.com family!");
 });
 
 // app.use(ErrorHandler)
