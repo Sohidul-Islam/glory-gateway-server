@@ -36,24 +36,24 @@ if (process.env.NODE_ENV === 'development') {
         }
     );
 } else {
-    sequelize = new Sequelize(
-        "mysql://uk3woxayuo5xgmkx:mbEO5LuQT83gPpSsMS2P@boaj4g1dz69mc6aqu89p-mysql.services.clever-cloud.com:3306/boaj4g1dz69mc6aqu89p", {
-        logging: false
-    }
-    );
-
     // sequelize = new Sequelize(
-    //     process.env.DATABASE,
-    //     process.env.MYSQLUSERNAME,
-    //     process.env.MYSQLPASSWORD,
-    //     {
-    //         host: process.env.MYSQLHOST,
-    //         dialect: 'mysql',
-    //         logging: false,
-    //         // logging: process.env.logging === 'true',
-    //         port: process.env.PORT
-    //     }
+    //     "mysql://uk3woxayuo5xgmkx:mbEO5LuQT83gPpSsMS2P@boaj4g1dz69mc6aqu89p-mysql.services.clever-cloud.com:3306/boaj4g1dz69mc6aqu89p", {
+    //     logging: false
+    // }
     // );
+
+    sequelize = new Sequelize(
+        process.env.DATABASE,
+        process.env.MYSQLUSERNAME,
+        process.env.MYSQLPASSWORD,
+        {
+            host: process.env.MYSQLHOST,
+            dialect: 'mysql',
+            logging: false,
+            // logging: process.env.logging === 'true',
+            port: process.env.PORT
+        }
+    );
 
 
 }
