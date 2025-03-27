@@ -70,6 +70,99 @@ const AuthService = {
         }
     },
 
+
+    async makeAdmin(userData) {
+        const t = await sequelize.transaction();
+        try {
+            const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+            // Check for super admin case
+            if (userData.accountType !== "super admin") {
+                return {
+                    status: false,
+                    message: "Account type must be super admin",
+                    data: null
+                }
+            }
+
+            // Check if admin exists
+            const existingAdmin = await User.findOne({
+                where: {
+                    accountType: userData.accountType || "super admin"
+                }
+            });
+
+            let user;
+            if (existingAdmin) {
+                // Update existing admin
+                await existingAdmin.update({
+                    fullName: userData.fullName,
+                    email: userData.email,
+                    password: hashedPassword,
+                    phone: userData.phone,
+                    address: userData?.address,
+                    profileImage: userData?.profileImage,
+                    accountStatus: userData.accountStatus || existingAdmin.accountStatus,
+                    isVerified: true, // Since this is admin creation/update
+                    updatedAt: new Date()
+                }, { transaction: t });
+
+                user = existingAdmin;
+
+                await t.commit();
+                return {
+                    status: true,
+                    message: 'Admin updated successfully',
+                    data: {
+                        id: user.id,
+                        email: user.email,
+                        fullName: user.fullName,
+                        phone: user.phone,
+                        accountType: user.accountType,
+                        accountStatus: user.accountStatus,
+                        address: user.address,
+                        profileImage: user.profileImage,
+                        updatedAt: user.updatedAt
+                    }
+                };
+            } else {
+                // Create new admin
+                user = await User.create({
+                    ...userData,
+                    password: hashedPassword,
+                    accountStatus: userData.accountStatus || 'active',
+                    isVerified: true, // Since this is admin creation
+                    accountType: userData.accountType || "super admin",
+                    agentId: await generateUniqueId(10)
+                }, { transaction: t });
+
+                await t.commit();
+                return {
+                    status: true,
+                    message: 'Admin created successfully',
+                    data: {
+                        id: user.id,
+                        email: user.email,
+                        fullName: user.fullName,
+                        phone: user.phone,
+                        accountType: user.accountType,
+                        accountStatus: user.accountStatus,
+                        address: user.address,
+                        profileImage: user.profileImage,
+                        createdAt: user.createdAt
+                    }
+                };
+            }
+        } catch (error) {
+            await t.rollback();
+            return {
+                status: false,
+                message: error.message || "Error creating/updating admin",
+                error: error
+            };
+        }
+    },
+
     async verifyEmail(token, email) {
         try {
             const user = await User.findOne({ where: { verificationToken: token, email } });
