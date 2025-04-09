@@ -59,7 +59,7 @@ const User = sequelize.define(
             comment: "Status of the user account",
         },
         accountType: {
-            type: Sequelize.ENUM("super admin", "agent"),
+            type: Sequelize.ENUM("super admin", "agent", "default"),
             defaultValue: "agent"
         },
         isVerified: {
@@ -79,6 +79,11 @@ const User = sequelize.define(
             allowNull: true,
             comment: "custom agent id",
         },
+        reference: {
+            type: Sequelize.STRING,
+            allowNull: true,
+            comment: "Reference code for the user",
+        },
         resetTokenExpiry: {
             type: Sequelize.DATE,
             defaultValue: null
@@ -86,6 +91,16 @@ const User = sequelize.define(
         resetToken: {
             type: Sequelize.STRING,
             defaultValue: null
+        },
+        commission: {
+            type: Sequelize.DECIMAL(15, 2),
+            allowNull: true,
+            defaultValue: 0
+        },
+        commissionType: {
+            type: Sequelize.ENUM('percentage', 'fixed'),
+            allowNull: true,
+            defaultValue: 'percentage'
         },
         isLoggedIn: {
             type: Sequelize.BOOLEAN,

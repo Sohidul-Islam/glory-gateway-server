@@ -31,7 +31,7 @@ const Transaction = sequelize.define('Transaction', {
     paymentTypeId: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        defaultValue:null,
+        defaultValue: null,
         references: {
             model: PaymentType,
             key: 'id'
@@ -40,7 +40,7 @@ const Transaction = sequelize.define('Transaction', {
     paymentDetailId: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        defaultValue:null,
+        defaultValue: null,
         references: {
             model: PaymentDetail,
             key: 'id'
@@ -48,7 +48,8 @@ const Transaction = sequelize.define('Transaction', {
     },
     paymentAccountId: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true,
+        defaultValue: null,
     },
     transactionId: {
         type: DataTypes.STRING,
@@ -67,20 +68,32 @@ const Transaction = sequelize.define('Transaction', {
         allowNull: false
     },
     paymentSourceId: {
-        type: DataTypes.INTEGER,
-        allowNull: false
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     type: {
-        type: DataTypes.ENUM('credit', 'debit'),
+        type: DataTypes.ENUM('withdraw', 'deposit'),
         allowNull: false
     },
     amount: {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: false
     },
+    commission: {
+        type: DataTypes.DECIMAL(15, 2),
+        allowNull: true
+    },
     status: {
         type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
         defaultValue: 'PENDING'
+    },
+    withdrawDescription: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    withdrawAccountNumber: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     remarks: {
         type: DataTypes.TEXT,

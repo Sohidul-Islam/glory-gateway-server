@@ -492,7 +492,7 @@ class PaymentService {
                 }
             }
 
-            if (!data?.paymentAccountId) {
+            if (!data?.paymentAccountId && data.type === 'deposit') {
                 return {
                     status: false,
                     message: "Payment account not provided"
@@ -512,11 +512,15 @@ class PaymentService {
                 attachment: data?.attachment,
                 type: data.type,
                 amount: data.amount,
-                transactionId: uuidv4()
+                transactionId: uuidv4(),
+                withdrawDescription: data?.withdrawDescription,
+                withdrawAccountNumber: data?.withdrawAccountNumber,
             }, { transaction: t });
 
-            // Update account usage
-            await PaymentAccountService.updateAccountUsage(data?.paymentAccountId, data.amount, t);
+
+            if (data.type === 'deposit') {
+                await PaymentAccountService.updateAccountUsage(data?.paymentAccountId, data.amount, t);
+            }
 
             const createdTransaction = await Transaction.findByPk(transaction.id, {
                 include: [
@@ -703,6 +707,8 @@ class PaymentService {
             await transaction.update({
                 status: data.status,
                 remarks: data?.remarks,
+                attachment: data?.attachment,
+                transactionId: data?.transactionId,
                 approvedBy: userId,
                 approvedAt: new Date(),
             }, { transaction: t });
@@ -898,7 +904,7 @@ class PaymentService {
 
     async getAgentPaymentDetails(query) {
         try {
-            const { agentId, paymentTypeId, paymentDetailId } = query;
+            const { agentId, paymentTypeId, paymentDetailId, transactionType } = query;
 
 
 
@@ -975,9 +981,30 @@ class PaymentService {
                 // limit: 1 // Only get one available account
             };
 
+
+
             const paymentAccount = await PaymentAccount.findOne(accountQuery);
 
-            if (!paymentAccount) {
+            const paymentType = transactionType === "withdraw" ? await PaymentType.findOne({
+                where: {
+                    id: paymentTypeId
+                },
+                include: [{
+                    model: PaymentMethod,
+                    where: { status: 'active' },
+                    attributes: ['id', 'name', 'image'],
+                    required: false
+                }]
+            }) : null;
+
+            const paymentDetail = transactionType === "withdraw" ? await PaymentDetail.findOne({
+                where: {
+                    id: paymentDetailId
+                }
+            }) : null;
+
+
+            if (!paymentAccount && transactionType === 'deposit') {
                 return {
                     status: false,
                     message: "No available payment accounts found"
@@ -996,25 +1023,26 @@ class PaymentService {
                     email: user.email
                 },
                 paymentMethod: {
-                    id: paymentAccount?.PaymentType?.PaymentMethod?.id || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.id,
-                    name: paymentAccount?.PaymentType?.PaymentMethod?.name || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.name,
-                    image: paymentAccount?.PaymentType?.PaymentMethod?.image || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.image
+                    id: paymentAccount?.PaymentType?.PaymentMethod?.id || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.id || paymentType?.PaymentMethod?.id,
+                    name: paymentAccount?.PaymentType?.PaymentMethod?.name || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.name || paymentType?.PaymentMethod?.name,
+                    image: paymentAccount?.PaymentType?.PaymentMethod?.image || paymentAccount?.PaymentDetail?.PaymentType?.PaymentMethod?.image || paymentType?.PaymentMethod?.image
                 },
                 paymentType: {
-                    id: paymentAccount?.PaymentType?.id || paymentAccount?.PaymentDetail?.PaymentType?.id,
-                    name: paymentAccount?.PaymentType?.name || paymentAccount?.PaymentDetail?.PaymentType?.name,
-                    image: paymentAccount?.PaymentType?.image || paymentAccount?.PaymentDetail?.PaymentType?.image
+                    id: paymentAccount?.PaymentType?.id || paymentAccount?.PaymentDetail?.PaymentType?.id || paymentType?.id,
+                    name: paymentAccount?.PaymentType?.name || paymentAccount?.PaymentDetail?.PaymentType?.name || paymentType?.name,
+                    image: paymentAccount?.PaymentType?.image || paymentAccount?.PaymentDetail?.PaymentType?.image || paymentType?.image
                 },
                 paymentDetail: {
-                    id: paymentAccount?.PaymentDetail?.id,
-                    value: paymentAccount?.PaymentDetail?.value,
-                    description: paymentAccount?.PaymentDetail?.description,
-                    charge: paymentAccount?.PaymentDetail?.charge,
-                    maxLimit: paymentAccount?.PaymentDetail?.maxLimit,
-                    currentUsage: paymentAccount?.PaymentDetail?.currentUsage,
+                    id: paymentAccount?.PaymentDetail?.id || paymentDetail?.id,
+                    value: paymentAccount?.PaymentDetail?.value || paymentDetail?.value,
+                    description: paymentAccount?.PaymentDetail?.description || paymentDetail?.description,
+                    charge: paymentAccount?.PaymentDetail?.charge || paymentDetail?.charge,
+                    maxLimit: paymentAccount?.PaymentDetail?.maxLimit || paymentDetail?.maxLimit,
+                    currentUsage: paymentAccount?.PaymentDetail?.currentUsage || paymentDetail?.currentUsage,
                     availableLimit: paymentAccount?.PaymentDetail?.maxLimit === 0 ?
                         'Unlimited' :
-                        (paymentAccount?.PaymentDetail?.maxLimit - paymentAccount?.PaymentDetail?.currentUsage)
+                        (paymentAccount?.PaymentDetail?.maxLimit - paymentAccount?.PaymentDetail?.currentUsage) ||
+                        (paymentDetail?.maxLimit - paymentDetail?.currentUsage)
                 },
                 account: {
                     id: paymentAccount?.id,
