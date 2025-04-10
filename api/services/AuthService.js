@@ -277,7 +277,7 @@ const AuthService = {
                 return { status: false, message: "User not found", data: null, };
             }
 
-            if (updateData.accountType === "super admin") {
+            if (updateData.accountType === "super admin" && user.accountType !== "super admin") {
                 const isExistSuperAdmin = await User.findOne({
                     where: {
                         accountType: "super admin"

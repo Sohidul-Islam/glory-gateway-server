@@ -20,6 +20,14 @@ const Transaction = sequelize.define('Transaction', {
             key: 'id'
         }
     },
+    requestedBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: User,
+            key: 'id'
+        },
+    },
     paymentMethodId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -83,6 +91,10 @@ const Transaction = sequelize.define('Transaction', {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: true
     },
+    settledCommission: {
+        type: DataTypes.DECIMAL(15, 2),
+        allowNull: true
+    },
     status: {
         type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
         defaultValue: 'PENDING'
@@ -131,5 +143,7 @@ Transaction.belongsTo(PaymentType, { foreignKey: 'paymentTypeId' });
 Transaction.belongsTo(PaymentDetail, { foreignKey: 'paymentDetailId' });
 Transaction.belongsTo(PaymentAccount, { foreignKey: 'paymentAccountId' });
 Transaction.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
+Transaction.belongsTo(User, { as: 'requester', foreignKey: 'requestedBy' });
 
-module.exports = Transaction; 
+
+module.exports = Transaction;

@@ -475,7 +475,7 @@ class PaymentService {
         }
     }
 
-    async createTransaction(agentId, data) {
+    async createTransaction(agentId, data, requestedBy) {
         const t = await sequelize.transaction();
         try {
 
@@ -515,6 +515,7 @@ class PaymentService {
                 transactionId: uuidv4(),
                 withdrawDescription: data?.withdrawDescription,
                 withdrawAccountNumber: data?.withdrawAccountNumber,
+                requestedBy: requestedBy
             }, { transaction: t });
 
 

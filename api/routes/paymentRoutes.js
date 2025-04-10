@@ -131,10 +131,11 @@ router.get('/types',
 );
 
 
-router.post('/transactions/:agentId',
+router.post('/transactions/:agentId', AuthService.authenticate,
     async (req, res) => {
         try {
-            const transaction = await PaymentService.createTransaction(req.params.agentId, req.body);
+            const requestedBy = req.user.id;
+            const transaction = await PaymentService.createTransaction(req.params.agentId, req.body, requestedBy);
             res.status(201).json(transaction);
         } catch (error) {
             res.status(500).json({ error: error.message });
