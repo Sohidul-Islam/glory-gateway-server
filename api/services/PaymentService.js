@@ -512,7 +512,10 @@ class PaymentService {
                 attachment: data?.attachment,
                 type: data.type,
                 amount: data.amount,
-                commission: userData.commissionType === 'percentage' ? Number(data.amount * userData.commission) : Number(userData.commission),
+                commission: data.type === 'withdraw' ? 0 : userData.commissionType === 'percentage'
+                    ? Number((data.amount * userData.commission) / 100)
+                    : Number(userData.commission),
+
                 transactionId: uuidv4(),
                 withdrawDescription: data?.withdrawDescription,
                 withdrawAccountNumber: data?.withdrawAccountNumber,

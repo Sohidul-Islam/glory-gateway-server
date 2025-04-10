@@ -205,9 +205,10 @@ const AuthService = {
 
 
 
-            // if (user && !user.isVerified) {
-            //     throw new Error('Please verify your email before logging in');
-            // }
+            if (user && !user.isVerified) {
+                await EmailService.sendVerificationEmail(user)
+                return { status: false, message: "Please verify your email before logging in and we will send you a verification email again", data: null };
+            }
 
 
             const isPasswordValid = await bcrypt.compare(password, user ? user.password : childUser.password);
@@ -317,9 +318,9 @@ const AuthService = {
                 return res.status(404).json({ status: false, message: "User not found", data: null });
             }
 
-            // if (user.accountStatus === "inactive") {
-            //     return res.status(401).json({ status: false, message: "User is not active. Please contact with support", data: null });
-            // }
+            if (user.accountStatus === "inactive") {
+                return res.status(401).json({ status: false, message: "User is not active. Please contact with support", data: null });
+            }
 
             req.user = user;
 
