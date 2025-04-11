@@ -37,9 +37,26 @@ router.post('/mark-read',
         }
     }
 );
+router.post('/mark-read/:notificationId',
+    AuthService.authenticate,
+    async (req, res) => {
+        try {
+            const result = await NotificationService.markAsRead(
+                req.user.id,
+                req.body.notificationIds // Optional, if not provided, mark all as read
+            );
+            res.status(result.status ? 200 : 400).json(result);
+        } catch (error) {
+            res.status(500).json({
+                status: false,
+                message: error.message || 'Error marking notifications as read'
+            });
+        }
+    }
+);
 
 // Delete notifications
-router.delete('/',
+router.post('/delete-notification',
     AuthService.authenticate,
     async (req, res) => {
         try {

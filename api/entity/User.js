@@ -102,6 +102,16 @@ const User = sequelize.define(
             allowNull: true,
             defaultValue: 'percentage'
         },
+        agentCommission: {
+            type: Sequelize.DECIMAL(15, 2),
+            allowNull: true,
+            defaultValue: 0
+        },
+        agentCommissionType: {
+            type: Sequelize.ENUM('percentage', 'fixed'),
+            allowNull: true,
+            defaultValue: 'percentage'
+        },
         isLoggedIn: {
             type: Sequelize.BOOLEAN,
             allowNull: false,

@@ -91,6 +91,10 @@ const Transaction = sequelize.define('Transaction', {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: true
     },
+    agentCommission: {
+        type: DataTypes.DECIMAL(15, 2),
+        allowNull: true
+    },
     settledCommission: {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: true

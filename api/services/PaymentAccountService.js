@@ -161,8 +161,10 @@ class PaymentAccountService {
                 throw new Error('Payment account not found');
             }
 
+            console.log({ account, amount })
 
-            if (account.maxLimit > 0 && (account.currentUsage + Number(amount)) > account.maxLimit) {
+
+            if (Number(account.maxLimit) > 0 && (Number(account.currentUsage) + Number(amount)) > Number(account.maxLimit)) {
                 throw new Error('Account limit exceeded');
             }
 

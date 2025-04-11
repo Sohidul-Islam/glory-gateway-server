@@ -15,7 +15,6 @@ class PaymentService {
         const t = await sequelize.transaction();
         try {
 
-
             const getPaymentMethod = await PaymentMethod.findOne({
                 where: {
                     name: data.name,
@@ -128,7 +127,6 @@ class PaymentService {
         try {
             const result = await PaymentMethod.findOne({
                 where: {
-                    userId: userId,
                     id: methodId
                 }
             });
@@ -195,8 +193,6 @@ class PaymentService {
 
                 ]
             });
-
-            console.log({ query, result })
 
             return {
                 status: true,
@@ -486,17 +482,15 @@ class PaymentService {
                 }
             });
 
+
+
             const requestedByUser = await User.findOne({
                 where: {
                     id: requestedBy
                 }
             });
 
-            const superAdmin = await User.findOne({
-                where: {
-                    role: 'superadmin'
-                }
-            });
+
 
 
             if (!requestedByUser) {
@@ -514,7 +508,7 @@ class PaymentService {
             }
 
 
-            if (userData.status !== 'active') {
+            if (userData.accountStatus !== 'active') {
                 return {
                     status: false,
                     message: "Agent is not active"
@@ -544,38 +538,15 @@ class PaymentService {
                 commission: data.type === 'withdraw' ? 0 : userData.commissionType === 'percentage'
                     ? Number((data.amount * userData.commission) / 100)
                     : Number(userData.commission),
-
+                agentCommission: data.type === 'withdraw' ? 0 : userData.agentCommissionType === 'percentage'
+                    ? Number((data.amount * userData.agentCommission) / 100)
+                    : Number(userData.agentCommission),
                 transactionId: uuidv4(),
                 withdrawDescription: data?.withdrawDescription,
                 withdrawAccountNumber: data?.withdrawAccountNumber,
                 requestedBy: requestedBy
             }, { transaction: t });
 
-
-            if (superAdmin.id) {
-
-            }
-
-            if (requestedBy !== userData.id) {
-                await Transaction.create({
-                    userId: requestedBy,
-                    paymentMethodId: data.paymentMethodId,
-                    paymentTypeId: data.paymentTypeId,
-                    paymentDetailId: data.paymentDetailId,
-                    paymentAccountId: data.paymentAccountId,
-                    paymentSource: data.paymentSource,
-                    paymentSourceId: data.paymentSourceId,
-                    givenTransactionId: data?.transactionId,
-                    attachment: data?.attachment,
-                    type: data.type,
-                    amount: data.amount,
-                    commission: 0,
-                    transactionId: uuidv4(),
-                    withdrawDescription: data?.withdrawDescription,
-                    withdrawAccountNumber: data?.withdrawAccountNumber,
-                    requestedBy: requestedBy
-                }, { transaction: t });
-            }
 
             if (data.type === 'deposit') {
                 await PaymentAccountService.updateAccountUsage(data?.paymentAccountId, data.amount, t);
@@ -603,31 +574,22 @@ class PaymentService {
 
             // Create notification for super admin commission and show each user commission
 
-            if (data.type !== 'withdraw') {
-                await NotificationService.createNotification({
-                    userId: superAdmin.id,
-                    type: 'info',
-                    title: 'Commission Notification',
-                    message: `Your commission ${data.type === 'withdraw' ? 0 : userData.commissionType === 'percentage'
-                        ? Number((data.amount * userData.commission) / 100)
-                        : Number(userData.commission)} for ${data.amount} has been successfully created and is pending approval.`,
-                    relatedEntityType: 'Transaction',
-                    relatedEntityId: transaction.id
-                });
-            }
+
 
 
 
             // Create notification requested by userSelect: 
 
-            await NotificationService.createNotification({
-                userId: requestedBy,
-                type: 'info',
-                title: `Transaction Request (${data.type.toUpperCase()})`,
-                message: `Your transaction for ${data.amount} has been requested by ${requestedByUser.fullName}.`,
-                relatedEntityType: 'Transaction',
-                relatedEntityId: transaction.id
-            });
+            if (requestedBy !== userData.id) {
+                await NotificationService.createNotification({
+                    userId: requestedBy,
+                    type: 'info',
+                    title: `Transaction Request (${data.type.toUpperCase()})`,
+                    message: `Your transaction for ${data.amount} has been requested by ${requestedByUser.fullName}.`,
+                    relatedEntityType: 'Transaction',
+                    relatedEntityId: transaction.id
+                });
+            }
 
 
             await t.commit();
@@ -636,6 +598,7 @@ class PaymentService {
                 message: "Transaction created successfully",
                 data: createdTransaction
             };
+
         } catch (error) {
             await t.rollback();
             throw error;
@@ -645,6 +608,7 @@ class PaymentService {
 
 
     async getUserTransactions(userId, query) {
+
         try {
             const {
                 page = 1,
@@ -667,9 +631,29 @@ class PaymentService {
             // Calculate offset
             const offset = (page - 1) * limit;
 
+            const userData = await User.findOne({
+                where: {
+                    id: userId
+                }
+            });
+
+            let newUserId = userId;
+
+
+            if (userData.accountType === 'super admin') {
+                newUserId = undefined;
+            }
+
+
             // Build where clause
+            // both newUserId  and reequested by is should be in or condition
             const whereClause = {
-                userId,
+                ...(newUserId ? {
+                    [Op.or]: [
+                        { userId: newUserId },
+                        { requestedBy: newUserId }
+                    ]
+                } : {}),
                 ...(paymentMethodId && { paymentMethodId }),
                 ...(paymentTypeId && { paymentTypeId }),
                 ...(paymentDetailId && { paymentDetailId }),
@@ -708,6 +692,14 @@ class PaymentService {
             const transactions = await Transaction.findAll({
                 where: whereClause,
                 include: [
+                    {
+                        model: User,
+                    },
+                    {
+                        model: User,
+                        as: "requester",
+
+                    },
                     {
                         model: PaymentMethod,
                         attributes: ['id', 'name', 'image']
@@ -807,7 +799,7 @@ class PaymentService {
                 status: data.status,
                 remarks: data?.remarks,
                 attachment: data?.attachment,
-                transactionId: data?.transactionId,
+                givenTransactionId: data?.transactionId,
                 approvedBy: userId,
                 approvedAt: new Date(),
             }, { transaction: t });
