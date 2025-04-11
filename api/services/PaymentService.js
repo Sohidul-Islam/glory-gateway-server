@@ -492,6 +492,14 @@ class PaymentService {
                 }
             }
 
+
+            if (userData.status !== 'active') {
+                return {
+                    status: false,
+                    message: "Agent is not active"
+                }
+            }
+
             if (!data?.paymentAccountId && data.type === 'deposit') {
                 return {
                     status: false,
