@@ -1,6 +1,7 @@
 const { Product, ProductVariant, Color, Size } = require('../entity');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('sequelize');
+const Notification = require('../entity/Notification');
 
 const NotificationService = {
     async getStockAlerts(userId) {
@@ -160,6 +161,223 @@ const NotificationService = {
                 error: error.message
             };
         }
+    },
+
+    /**
+     * Create a notification for a user
+     */
+    async createNotification(data) {
+        try {
+            const notification = await Notification.create({
+                userId: data.userId,
+                type: data.type || 'info',
+                title: data.title,
+                message: data.message,
+                relatedEntityType: data.relatedEntityType,
+                relatedEntityId: data.relatedEntityId
+            });
+
+            return {
+                status: true,
+                message: 'Notification created successfully',
+                data: notification
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || 'Error creating notification',
+                error: error
+            };
+        }
+    },
+
+    /**
+     * Get user notifications with pagination and filters
+     */
+    async getUserNotifications(userId, query) {
+        try {
+            const {
+                page = 1,
+                limit = 10,
+                type,
+                read,
+                startDate,
+                endDate,
+                search
+            } = query;
+
+            // Calculate offset
+            const offset = (page - 1) * limit;
+
+            // Build where clause
+            const whereClause = {
+                userId,
+                ...(type && { type }),
+                ...(read !== undefined && { read: read === 'true' }),
+                ...(startDate && endDate && {
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate),
+                            new Date(endDate)
+                        ]
+                    }
+                }),
+                ...(search && {
+                    [Op.or]: [
+                        { title: { [Op.like]: `%${search}%` } },
+                        { message: { [Op.like]: `%${search}%` } }
+                    ]
+                })
+            };
+
+            // Get total count for pagination
+            const total = await Notification.count({
+                where: whereClause
+            });
+
+            // Calculate total pages
+            const totalPages = Math.ceil(total / limit);
+
+            // Get notifications with pagination and filters
+            const notifications = await Notification.findAll({
+                where: whereClause,
+                order: [['createdAt', 'DESC']],
+                limit: parseInt(limit),
+                offset: parseInt(offset)
+            });
+
+            // Format timestamp for response
+            const formattedNotifications = notifications.map(notification => ({
+                id: notification.id,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message,
+                timestamp: this.formatTimestamp(notification.createdAt),
+                read: notification.read,
+                relatedEntityType: notification.relatedEntityType,
+                relatedEntityId: notification.relatedEntityId
+            }));
+
+            return {
+                status: true,
+                message: 'Notifications retrieved successfully',
+                data: {
+                    notifications: formattedNotifications,
+                    pagination: {
+                        total,
+                        totalPages,
+                        currentPage: parseInt(page),
+                        limit: parseInt(limit),
+                        hasNextPage: page < totalPages,
+                        hasPrevPage: page > 1
+                    },
+                    unreadCount: await this.getUnreadCount(userId)
+                }
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || 'Error retrieving notifications',
+                error: error
+            };
+        }
+    },
+
+    /**
+     * Get count of unread notifications
+     */
+    async getUnreadCount(userId) {
+        try {
+            return await Notification.count({
+                where: {
+                    userId,
+                    read: false
+                }
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Mark notifications as read
+     */
+    async markAsRead(userId, notificationIds) {
+        try {
+            let whereClause = { userId };
+
+            // If notification IDs are provided, only mark those as read
+            if (notificationIds && notificationIds.length > 0) {
+                whereClause.id = {
+                    [Op.in]: notificationIds
+                };
+            }
+
+            await Notification.update(
+                { read: true },
+                { where: whereClause }
+            );
+
+            return {
+                status: true,
+                message: notificationIds ? 'Notifications marked as read' : 'All notifications marked as read',
+                data: {
+                    unreadCount: await this.getUnreadCount(userId)
+                }
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || 'Error marking notifications as read',
+                error: error
+            };
+        }
+    },
+
+    /**
+     * Delete notifications
+     */
+    async deleteNotifications(userId, notificationIds) {
+        try {
+            let whereClause = { userId };
+
+            // If notification IDs are provided, only delete those
+            if (notificationIds && notificationIds.length > 0) {
+                whereClause.id = {
+                    [Op.in]: notificationIds
+                };
+            }
+
+            await Notification.destroy({
+                where: whereClause
+            });
+
+            return {
+                status: true,
+                message: notificationIds ? 'Notifications deleted' : 'All notifications deleted',
+                data: null
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || 'Error deleting notifications',
+                error: error
+            };
+        }
+    },
+
+    /**
+     * Format timestamp to "YYYY-MM-DD HH:MM" format
+     */
+    formatTimestamp(date) {
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
     }
 };
 

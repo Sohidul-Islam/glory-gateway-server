@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const sequelize = require('../db');
 const { Op } = require('sequelize');
 const User = require('../entity/User');
+const NotificationService = require('./NotificationService');
 
 class PaymentService {
     async createPaymentMethod(data, userId) {
@@ -485,6 +486,26 @@ class PaymentService {
                 }
             });
 
+            const requestedByUser = await User.findOne({
+                where: {
+                    id: requestedBy
+                }
+            });
+
+            const superAdmin = await User.findOne({
+                where: {
+                    role: 'superadmin'
+                }
+            });
+
+
+            if (!requestedByUser) {
+                return {
+                    status: false,
+                    message: "Requested by user not found"
+                }
+            }
+
             if (!userData) {
                 return {
                     status: false,
@@ -531,6 +552,31 @@ class PaymentService {
             }, { transaction: t });
 
 
+            if (superAdmin.id) {
+
+            }
+
+            if (requestedBy !== userData.id) {
+                await Transaction.create({
+                    userId: requestedBy,
+                    paymentMethodId: data.paymentMethodId,
+                    paymentTypeId: data.paymentTypeId,
+                    paymentDetailId: data.paymentDetailId,
+                    paymentAccountId: data.paymentAccountId,
+                    paymentSource: data.paymentSource,
+                    paymentSourceId: data.paymentSourceId,
+                    givenTransactionId: data?.transactionId,
+                    attachment: data?.attachment,
+                    type: data.type,
+                    amount: data.amount,
+                    commission: 0,
+                    transactionId: uuidv4(),
+                    withdrawDescription: data?.withdrawDescription,
+                    withdrawAccountNumber: data?.withdrawAccountNumber,
+                    requestedBy: requestedBy
+                }, { transaction: t });
+            }
+
             if (data.type === 'deposit') {
                 await PaymentAccountService.updateAccountUsage(data?.paymentAccountId, data.amount, t);
             }
@@ -543,6 +589,46 @@ class PaymentService {
                     { model: PaymentAccount }
                 ]
             });
+
+            // Create notification for transaction
+            await NotificationService.createNotification({
+                userId: userData.id,
+                type: 'info',
+                title: `New ${data.type} Transaction`,
+                message: `Your ${data.type.toLowerCase()} transaction for ${data.amount} has been successfully created and is pending approval.`,
+                relatedEntityType: 'Transaction',
+                relatedEntityId: transaction.id
+            });
+
+
+            // Create notification for super admin commission and show each user commission
+
+            if (data.type !== 'withdraw') {
+                await NotificationService.createNotification({
+                    userId: superAdmin.id,
+                    type: 'info',
+                    title: 'Commission Notification',
+                    message: `Your commission ${data.type === 'withdraw' ? 0 : userData.commissionType === 'percentage'
+                        ? Number((data.amount * userData.commission) / 100)
+                        : Number(userData.commission)} for ${data.amount} has been successfully created and is pending approval.`,
+                    relatedEntityType: 'Transaction',
+                    relatedEntityId: transaction.id
+                });
+            }
+
+
+
+            // Create notification requested by userSelect: 
+
+            await NotificationService.createNotification({
+                userId: requestedBy,
+                type: 'info',
+                title: `Transaction Request (${data.type.toUpperCase()})`,
+                message: `Your transaction for ${data.amount} has been requested by ${requestedByUser.fullName}.`,
+                relatedEntityType: 'Transaction',
+                relatedEntityId: transaction.id
+            });
+
 
             await t.commit();
             return {
@@ -760,6 +846,21 @@ class PaymentService {
                         foreignKey: 'approvedBy'
                     }
                 ]
+            });
+
+            // Create notification for transaction status change
+            const notificationType = data.status === 'APPROVED' ? 'success' : 'error';
+            const notificationTitle = data.status === 'APPROVED' ? 'Transaction Approved' : 'Transaction Rejected';
+
+            await NotificationService.createNotification({
+                userId: transaction.userId,
+                type: notificationType,
+                title: notificationTitle,
+                message: data.status === 'APPROVED'
+                    ? `Your transaction #${transaction.transactionId} has been approved.`
+                    : `Your transaction #${transaction.transactionId} has been rejected. Reason: ${data.remarks || 'No reason provided'}`,
+                relatedEntityType: 'Transaction',
+                relatedEntityId: transaction.id
             });
 
             await t.commit();
@@ -1080,6 +1181,90 @@ class PaymentService {
             return {
                 status: false,
                 message: error.message || "Error retrieving payment details",
+                error: error
+            };
+        }
+    }
+
+    async checkAccountLimits() {
+        try {
+            // Find accounts near their limits (e.g., 80% used)
+            const nearLimitAccounts = await PaymentAccount.findAll({
+                where: {
+                    status: 'active',
+                    maxLimit: {
+                        [Op.gt]: 0 // Only check accounts with limits
+                    },
+                    [Op.and]: [
+                        sequelize.literal('currentUsage > (maxLimit * 0.8)'), // 80% of limit reached
+                        sequelize.literal('currentUsage < maxLimit') // Not yet exceeded
+                    ]
+                },
+                include: [
+                    {
+                        model: User,
+                        attributes: ['id']
+                    }
+                ]
+            });
+
+            // Create notifications for accounts near their limits
+            for (const account of nearLimitAccounts) {
+                const percentUsed = Math.round((account.currentUsage / account.maxLimit) * 100);
+
+                await NotificationService.createNotification({
+                    userId: account.User.id,
+                    type: 'warning',
+                    title: 'Account Limit Warning',
+                    message: `Your account ${account.accountNumber} has reached ${percentUsed}% of its limit. Current usage: ${account.currentUsage} of ${account.maxLimit}.`,
+                    relatedEntityType: 'PaymentAccount',
+                    relatedEntityId: account.id
+                });
+            }
+
+            // Find accounts that have exceeded their limits
+            const exceededLimitAccounts = await PaymentAccount.findAll({
+                where: {
+                    status: 'active',
+                    maxLimit: {
+                        [Op.gt]: 0 // Only check accounts with limits
+                    },
+                    [Op.and]: [
+                        sequelize.literal('currentUsage >= maxLimit')
+                    ]
+                },
+                include: [
+                    {
+                        model: User,
+                        attributes: ['id']
+                    }
+                ]
+            });
+
+            // Create notifications for accounts that have exceeded their limits
+            for (const account of exceededLimitAccounts) {
+                await NotificationService.createNotification({
+                    userId: account.User.id,
+                    type: 'error',
+                    title: 'Account Limit Exceeded',
+                    message: `Your account ${account.accountNumber} has exceeded its limit. Current usage: ${account.currentUsage} of ${account.maxLimit}. Please contact support.`,
+                    relatedEntityType: 'PaymentAccount',
+                    relatedEntityId: account.id
+                });
+            }
+
+            return {
+                status: true,
+                message: 'Account limits checked successfully',
+                data: {
+                    nearLimitCount: nearLimitAccounts.length,
+                    exceededLimitCount: exceededLimitAccounts.length
+                }
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || 'Error checking account limits',
                 error: error
             };
         }
