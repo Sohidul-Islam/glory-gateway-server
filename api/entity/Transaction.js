@@ -100,7 +100,7 @@ const Transaction = sequelize.define('Transaction', {
         allowNull: true
     },
     status: {
-        type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+        type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED', 'SETTLED'),
         defaultValue: 'PENDING'
     },
     withdrawDescription: {

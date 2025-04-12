@@ -773,12 +773,14 @@ class PaymentService {
             }
 
             // Check if transaction is already approved/rejected
-            if (transaction.status !== 'PENDING') {
+            if (transaction.status !== 'PENDING' && data.status !== 'SETTLED') {
                 return {
                     status: false,
                     message: `Transaction is already ${transaction.status.toLowerCase()}`
                 };
             }
+
+
 
             // If rejecting, we need to reverse the account usage
             if (data.status === 'REJECTED') {
@@ -800,6 +802,7 @@ class PaymentService {
                 remarks: data?.remarks,
                 attachment: data?.attachment,
                 givenTransactionId: data?.transactionId,
+                settledCommission: data?.settledCommission,
                 approvedBy: userId,
                 approvedAt: new Date(),
             }, { transaction: t });
