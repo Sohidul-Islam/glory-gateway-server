@@ -2,26 +2,27 @@ const cron = require('node-cron');
 const { UserSubscription, User, SubscriptionPlan } = require('../entity');
 const { Op } = require('sequelize');
 const EmailService = require('./EmailService');
+const PaymentAccount = require('../entity/PaymentAccount');
 
 const SchedulerService = {
     // Check and update expired subscriptions - runs every day at midnight
     checkExpiredSubscriptions: cron.schedule('0 0 * * *', async () => {
         try {
             // Find and update expired subscriptions
-            const expiredSubscriptions = await UserSubscription.update(
-                { status: 'expired' },
+            const expiredSubscriptions = await PaymentAccount.update(
+                { currentUsage: 0 },
                 {
                     where: {
                         status: 'active',
-                        endDate: {
-                            [Op.lt]: new Date()
+                        currentUsage: {
+                            [Op.gt]: 0
                         }
                     },
-                    returning: true
+
                 }
             );
 
-            console.log(`Updated ${expiredSubscriptions[1] || 0} expired subscriptions`);
+            console.log(`Updated subscription subscriptions`);
         } catch (error) {
             console.error('Error checking expired subscriptions:', error);
         }
