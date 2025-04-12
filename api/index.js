@@ -11,7 +11,7 @@ const paymentRoute = require("./routes/paymentRoutes")
 const imageUploadRoute = require("./routes/imageUploadRoute")
 const userRoute = require("./routes/userRoutes")
 const notificationRoutes = require('./routes/notificationRoutes');
-
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const port = process.env.SERVER_PORT || 3000
 const SchedulerService = require('./services/SchedulerService');
 app.use(cors())
@@ -27,6 +27,7 @@ app.use("/api/images", requestHandler(null, imageUploadRoute));
 app.use("/api/payment", requestHandler(null, paymentRoute));
 app.use("/api/role", requestHandler(null, userRoute));
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 
 
