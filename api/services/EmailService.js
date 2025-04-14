@@ -26,12 +26,20 @@ class EmailService {
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
             to: user.email,
-            subject: 'Verify Your Email Address',
+            subject: 'Verify Your LendenPay Email Address',
             html: `
                 <h1>Welcome to LendenPay!</h1>
                 <p>Please click the link below to verify your email address:</p>
                 <a href="${verificationUrl}">Verify Email</a>
                 <p>If you didn't create this account, please ignore this email.</p>
+                <br>
+                <br>
+                <br>
+                <p>Thank you for choosing LendenPay!</p>
+                <p>Best regards,</p>
+                <p>LendenPay Team</p>
+                <p>www.lendenpay.com</p>
+            
             `
         };
 
@@ -44,13 +52,20 @@ class EmailService {
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
             to: email,
-            subject: 'Password Reset Request',
+            subject: 'Password Reset Request - LendenPay',
             html: `
                 <h1>Password Reset Request</h1>
                 <p>You requested to reset your password. Please click the link below to reset your password:</p>
                 <a href="${resetLink}">Reset Password</a>
                 <p>This link will expire in 1 hour.</p>
                 <p>If you didn't request this, please ignore this email.</p>
+                <br>
+                <br>
+                <br>
+                <p>Thank you for choosing LendenPay!</p>
+                <p>Best regards,</p>
+                <p>LendenPay Team</p>
+                <p>www.lendenpay.com</p>
             `
         };
 
@@ -69,7 +84,7 @@ class EmailService {
         const mailOptions = {
             from: process.env.ADMIN_EMAIL,
             to: email,
-            subject: `Subscription Renewal Reminder - ${daysRemaining} days remaining`,
+            subject: `Subscription Renewal Reminder - ${daysRemaining} days remaining - LendenPay`,
             html: `
             <h2>Subscription Renewal Reminder</h2>
             <p>Dear ${userName},</p>
