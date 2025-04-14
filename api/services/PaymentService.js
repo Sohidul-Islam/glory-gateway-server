@@ -753,6 +753,181 @@ class PaymentService {
         }
     }
 
+
+
+    async getTransactionsCharges(userId, query) {
+
+        try {
+            const {
+                page = 1,
+                limit = 10,
+                paymentMethodId,
+                paymentTypeId,
+                paymentDetailId,
+                paymentAccountId,
+                source,
+                sourceId,
+                transactionId,
+                type,
+                startDate,
+                endDate,
+                status,
+                sortBy = 'createdAt',
+                sortOrder = 'DESC',
+                searchKey
+            } = query;
+
+            // Calculate offset
+            const offset = (page - 1) * limit;
+
+            const userData = await User.findOne({
+                where: {
+                    id: userId
+                }
+            });
+
+            let newUserId = userId;
+
+
+            if (userData.accountType === 'super admin') {
+                newUserId = undefined;
+            }
+
+
+            // Build where clause
+            // both newUserId  and reequested by is should be in or condition
+            const whereClause = {
+                ...(newUserId ? {
+                    [Op.or]: [
+                        { userId: newUserId },
+                        { requestedBy: newUserId }
+                    ]
+                } : {}),
+                ...(paymentMethodId && { paymentMethodId }),
+                ...(paymentTypeId && { paymentTypeId }),
+                ...(paymentDetailId && { paymentDetailId }),
+                ...(paymentAccountId && { paymentAccountId }),
+                ...(source && { paymentSource: source }),
+                ...(sourceId && { paymentSourceId: sourceId }),
+                ...(transactionId && {
+                    transactionId: {
+                        [Op.like]: `%${transactionId}%`
+                    }
+                }),
+                ...(type && { type }),
+                ...(status && { status }),
+                ...(startDate && endDate && {
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate),
+                            new Date(endDate)
+                        ]
+                    }
+                }),
+                type: "deposit",
+                ...(searchKey && {
+                    [Op.or]: [
+                        { transactionId: { [Op.like]: `%${searchKey}%` } },
+                        { paymentSource: { [Op.like]: `%${searchKey}%` } },
+                        { paymentSourceId: { [Op.like]: `%${searchKey}%` } }
+                    ]
+                })
+            };
+
+            // Get total count for pagination
+            const total = await Transaction.count({
+                where: whereClause,
+                include: [
+                    {
+                        model: User,
+                        where: searchKey ? {
+                            [Op.or]: [
+                                { fullName: { [Op.like]: `%${searchKey}%` } },
+                                { email: { [Op.like]: `%${searchKey}%` } },
+                                { phoneNumber: { [Op.like]: `%${searchKey}%` } },
+                                { agentId: { [Op.like]: `%${searchKey}%` } }
+                            ]
+                        } : undefined,
+                        required: searchKey ? true : false
+                    }
+                ]
+            });
+
+            // Calculate total pages
+            const totalPages = Math.ceil(total / limit);
+
+            // Build sort order
+            const order = [[sortBy, sortOrder]];
+
+            // Get transactions with pagination and filters
+            const transactions = await Transaction.findAll({
+                where: whereClause,
+                include: [
+                    {
+                        model: User,
+                        where: searchKey ? {
+                            [Op.or]: [
+                                { fullName: { [Op.like]: `%${searchKey}%` } },
+                                { email: { [Op.like]: `%${searchKey}%` } },
+                                { phoneNumber: { [Op.like]: `%${searchKey}%` } },
+                                { agentId: { [Op.like]: `%${searchKey}%` } }
+                            ]
+                        } : undefined,
+                        required: searchKey ? true : false
+                    },
+                    {
+                        model: PaymentMethod,
+                        attributes: ['id', 'name', 'image']
+                    },
+                    {
+                        model: PaymentType,
+                        attributes: ['id', 'name', 'image']
+                    },
+                    {
+                        model: PaymentDetail,
+                        attributes: ['id', 'value', 'description', 'charge']
+                    },
+                    {
+                        model: PaymentAccount,
+                        attributes: [
+                            'id',
+                            'accountNumber',
+                            'accountName',
+                            'branchName',
+                            'routingNumber'
+                        ]
+                    }
+                ],
+                order,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+
+            });
+
+            return {
+                status: true,
+                message: "Transactions retrieved successfully",
+                data: {
+                    transactions,
+                    pagination: {
+                        total,
+                        totalPages,
+                        currentPage: parseInt(page),
+                        limit: parseInt(limit),
+                        hasNextPage: page < totalPages,
+                        hasPrevPage: page > 1
+                    }
+                }
+            };
+        } catch (error) {
+            return {
+                status: false,
+                message: error.message || "Error retrieving transactions",
+                error: error
+            };
+        }
+    }
+
     async updateTransactionStatus(transactionId, data, userId) {
         const t = await sequelize.transaction();
         try {
@@ -1128,7 +1303,7 @@ class PaymentService {
                     agentId: user.agentId,
                     image: user.image,
                     status: user.accountStatus,
-                    phone: user.phone,
+                    phone: user.phoneNumber,
                     email: user.email
                 },
                 paymentMethod: {

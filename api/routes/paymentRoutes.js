@@ -151,6 +151,15 @@ router.get('/transactions',
     }
 );
 
+
+router.get('/transactions-charges',
+    AuthService.authenticate,
+    async (req, res) => {
+        const result = await PaymentService.getTransactionsCharges(req.user.id, req.query);
+        res.status(result.status ? 200 : 400).json(result);
+    }
+);
+
 // Update payment type
 router.post('/types/:id',
     AuthService.authenticate,
