@@ -47,7 +47,7 @@ const AuthService = {
             const user = await User.create({
                 ...userData,
                 password: hashedPassword,
-                accountStatus: 'inactive',
+                accountStatus: userData?.accountType === "default" ? 'active' : 'inactive',
                 isVerified: false,
                 agentId: generateUniqueId(10)
             });
