@@ -28,7 +28,7 @@ class EmailService {
             to: user.email,
             subject: 'Verify Your Email Address',
             html: `
-                <h1>Welcome to FG POS!</h1>
+                <h1>Welcome to LendenPay!</h1>
                 <p>Please click the link below to verify your email address:</p>
                 <a href="${verificationUrl}">Verify Email</a>
                 <p>If you didn't create this account, please ignore this email.</p>

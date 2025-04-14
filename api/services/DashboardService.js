@@ -27,7 +27,6 @@ class DashboardService {
             // Get payment methods and types count
             const paymentMethodsCount = await PaymentMethod.count({
                 where: {
-
                     status: 'active'
                 }
             });
