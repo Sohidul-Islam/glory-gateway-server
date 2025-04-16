@@ -825,6 +825,9 @@ class PaymentService {
                     }
                 }),
                 type: "deposit",
+                commission: {
+                    [Op.gt]: 0
+                },
                 ...(searchKey && {
                     [Op.or]: [
                         { transactionId: { [Op.like]: `%${searchKey}%` } },
@@ -1189,7 +1192,6 @@ class PaymentService {
     async getAgentPaymentDetails(query) {
         try {
             const { agentId, paymentTypeId, paymentDetailId, transactionType } = query;
-
 
 
             // Find the agent/user
