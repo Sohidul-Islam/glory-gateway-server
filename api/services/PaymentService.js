@@ -484,16 +484,16 @@ class PaymentService {
 
 
 
-            const requestedByUser = await User.findOne({
+            const requestedByUser = requestedBy ? await User.findOne({
                 where: {
                     id: requestedBy
                 }
-            });
+            }) : null;
 
 
 
 
-            if (!requestedByUser) {
+            if (!requestedByUser && requestedBy) {
                 return {
                     status: false,
                     message: "Requested by user not found"
@@ -524,7 +524,7 @@ class PaymentService {
 
 
             const transaction = await Transaction.create({
-                userId: userData.id,
+                userId: userData?.id,
                 paymentMethodId: data.paymentMethodId,
                 paymentTypeId: data.paymentTypeId,
                 paymentDetailId: data.paymentDetailId,
@@ -585,7 +585,7 @@ class PaymentService {
                     userId: requestedBy,
                     type: 'info',
                     title: `Transaction Request (${data.type.toUpperCase()})`,
-                    message: `Your transaction for ${data.amount} has been requested by ${requestedByUser.fullName}.`,
+                    message: `Your transaction for ${data.amount} has been requested by ${requestedByUser?.fullName}.`,
                     relatedEntityType: 'Transaction',
                     relatedEntityId: transaction.id
                 });

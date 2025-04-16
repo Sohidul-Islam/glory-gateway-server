@@ -435,7 +435,14 @@ const AuthService = {
             const getUserData = await User.findByPk(UserId);
 
             if (getUserData.accountType !== "super admin") {
-                whereClause.id = UserId;
+                whereClause[Op.or] = [
+                    { id: UserId },
+                    { reference: getUserData.agentId }
+                ];
+
+
+                // only show default users and agent himhelp
+                whereClause.accountType = { [Op.or]: ["default", "agent"] }
             }
 
             // Add search functionality

@@ -31,10 +31,9 @@ router.post('/methods/:id',
 
 // User routes
 router.get('/methods',
-    AuthService.authenticate,
     async (req, res) => {
         try {
-            const methods = await PaymentService.getAllPaymentMethods(req.user.accountType !== "super admin" ? "active" : req?.query?.status);
+            const methods = await PaymentService.getAllPaymentMethods(req?.user?.accountType !== "super admin" ? "active" : req?.query?.status);
             res.json(methods);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -131,10 +130,10 @@ router.get('/types',
 );
 
 
-router.post('/transactions/:agentId', AuthService.authenticate,
+router.post('/transactions/:agentId',
     async (req, res) => {
         try {
-            const requestedBy = req.user.id;
+            const requestedBy = req?.user?.id;
             const transaction = await PaymentService.createTransaction(req.params.agentId, req.body, requestedBy);
             res.status(201).json(transaction);
         } catch (error) {
@@ -296,11 +295,10 @@ router.get('/generate-agent-id',
     }
 );
 
-router.get('/agent-payment-details',
-    AuthService.authenticate, async (req, res) => {
-        const result = await PaymentService.getAgentPaymentDetails(req.query);
-        res.status(result.status ? 200 : 400).json(result);
-    }
+router.get('/agent-payment-details', async (req, res) => {
+    const result = await PaymentService.getAgentPaymentDetails(req.query);
+    res.status(result.status ? 200 : 400).json(result);
+}
 );
 
 // Update transaction status (approve/reject)
