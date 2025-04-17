@@ -20,7 +20,9 @@ class DashboardService {
 
             // Get user type
             const user = await User.findByPk(userId);
-            const whereClause = user.accountType === 'super admin' ? {} : {
+            const whereClause = user.accountType === 'super admin' ? {} : user.accountType === 'default' ? {
+                requestedBy: userId
+            } : {
                 userId
             };
 
