@@ -48,7 +48,18 @@ class DashboardService {
                     [Sequelize.fn('SUM', Sequelize.col('amount')), 'totalAmount'],
                     [Sequelize.fn('SUM', Sequelize.col('commission')), 'totalCommission'],
                     [Sequelize.fn('SUM', Sequelize.col('agentCommission')), 'totalAgentCommission'],
-                    [Sequelize.fn('SUM', Sequelize.col('settledCommission')), 'settledAmount']
+                    [Sequelize.fn('SUM', Sequelize.col('settledCommission')), 'settledAmount'],
+
+                    [Sequelize.fn('COUNT', Sequelize.col('id')), 'totalTransactions'],
+                    [Sequelize.fn('SUM', Sequelize.literal('CASE WHEN type = "deposit" THEN amount ELSE 0 END')), 'totalDeposit'],
+                    [Sequelize.fn('SUM', Sequelize.literal('CASE WHEN type = "withdraw" THEN amount ELSE 0 END')), 'totalWithdraw'],
+                    [Sequelize.fn('SUM', Sequelize.literal('CASE WHEN status = "APPROVED" THEN amount ELSE 0 END')), 'totalApproved'],
+                    [Sequelize.fn('SUM', Sequelize.literal('CASE WHEN status = "REJECTED" THEN amount ELSE 0 END')), 'totalRejected'],
+                    [Sequelize.fn('SUM', Sequelize.literal('CASE WHEN status = "SETTLED" THEN amount ELSE 0 END')), 'totalSettled'],
+                    [Sequelize.fn('COUNT', Sequelize.literal('CASE WHEN status = "APPROVED" THEN 1 END')), 'approvedCount'],
+                    [Sequelize.fn('COUNT', Sequelize.literal('CASE WHEN status = "REJECTED" THEN 1 END')), 'rejectedCount'],
+                    [Sequelize.fn('COUNT', Sequelize.literal('CASE WHEN status = "SETTLED" THEN 1 END')), 'settledCount'],
+                    [Sequelize.fn('COUNT', Sequelize.literal('CASE WHEN status = "PENDING" THEN 1 END')), 'pendingCount'],
 
                 ],
                 raw: true
@@ -67,7 +78,17 @@ class DashboardService {
                         totalAmount: Number(stats.totalAmount) || 0,
                         totalCommission: Number(stats.totalCommission) || 0,
                         agentCommission: Number(stats.totalAgentCommission) || 0,
-                        settledAmount: Number(stats.settledAmount) || 0
+                        settledAmount: Number(stats.settledAmount) || 0,
+                        totalDeposit: Number(stats.totalDeposit) || 0,
+                        totalWithdraw: Number(stats.totalWithdraw) || 0,
+                        totalApproved: Number(stats.totalApproved) || 0,
+                        totalRejected: Number(stats.totalRejected) || 0,
+                        totalSettled: Number(stats.totalSettled) || 0,
+                        approvedCount: Number(stats.approvedCount) || 0,
+                        settledCount: Number(stats.settledCount) || 0,
+                        rejectedCount: Number(stats.rejectedCount) || 0,
+                        pendingCount: Number(stats.pendingCount) || 0,
+
                     }
                 }
             };
